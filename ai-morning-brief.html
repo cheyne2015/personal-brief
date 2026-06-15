@@ -2029,7 +2029,7 @@ body {
 
       cat.items.forEach(function(item) {
         globalNum++;
-        html += '<article class="card ' + key + ' animate-on-scroll">';
+        html += '<article class="card ' + key + ' animate-on-scroll visible">';
         html += '<div class="card-header"><span class="card-number">' + globalNum + '</span><h3>' + (item.title || '') + '</h3></div>';
         html += '<div class="card-meta"><span class="source-chip">' + sourceIcon(item.source) + (item.source||'未知来源') + '</span><span class="card-time">⏱ ' + timeAgo(item.publishedAt) + '</span></div>';
         html += '<p class="card-summary">' + (item.summary || '') + '</p>';
