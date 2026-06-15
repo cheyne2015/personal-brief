@@ -975,105 +975,10 @@ body {
   <div class="major-header">
     <div class="major-icon" style="background:var(--clr-model-bg);">🧠</div>
     <h2 class="major-title">AI 日报</h2>
-    <span class="major-count">覆盖 06.14 08:00 — 06.15 08:00 · 共 6 条</span>
-    <span class="freshness-badge snapshot"><span class="freshness-dot"></span>快照内容</span>
+    <span class="major-count" id="aiNewsCount">加载中…</span>
+    <span class="freshness-badge live" id="aiNewsBadge"><span class="freshness-dot"></span>实时数据</span>
   </div>
-
-  <!-- Sub: 行业动态 -->
-  <div class="sub-section" id="industry">
-    <div class="sub-header">
-      <h3>📡 行业动态</h3><span class="sub-count">2 条</span>
-    </div>
-    <div class="cards-grid">
-      <article class="card industry animate-on-scroll">
-        <div class="card-header"><span class="card-number">1</span><h3>Anthropic 暂停新模型访问，印度辩论 AI 未来</h3></div>
-        <div class="card-meta"><span class="source-chip">📰 TechCrunch</span><span class="card-time">📅 日报收录</span></div>
-        <p class="card-summary">Anthropic 暂停了新模型的访问权限，印度科技领袖围绕这一事件展开辩论，探讨其是否是对该国 AI 雄心的警示。</p>
-        <a href="https://techcrunch.com/2026/06/13/as-anthropic-suspends-access-to-new-models-india-debates-its-ai-future" class="card-action" target="_blank" rel="noopener noreferrer">
-          阅读原文
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </a>
-      </article>
-      <article class="card industry animate-on-scroll">
-        <div class="card-header"><span class="card-number">2</span><h3>Meta 开始撤销 20 亿美元收购 Manus 的交易</h3></div>
-        <div class="card-meta"><span class="source-chip">📰 TechCrunch</span><span class="card-time">📅 日报收录</span></div>
-        <p class="card-summary">Meta 已开始撤销对 Manus 的 20 亿美元收购交易，此前北京要求该交易必须反转，目前收购解除程序已启动。</p>
-        <a href="https://techcrunch.com/2026/06/13/meta-reportedly-moves-to-unwind-2b-manus-deal-after-beijings-demand" class="card-action" target="_blank" rel="noopener noreferrer">
-          阅读原文
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </a>
-      </article>
-    </div>
-  </div>
-
-  <!-- Sub: 模型发布/更新 (0 条 → 折叠) -->
-  <div class="sub-section collapsed" id="models">
-    <div class="sub-header collapsible" onclick="toggleSubSection('models')">
-      <h3>🤖 模型发布/更新</h3><span class="sub-count">0 条</span>
-    </div>
-    <div class="empty-section">本日报周期内暂无模型发布或更新资讯</div>
-  </div>
-
-  <!-- Sub: 产品发布/更新 (0 条 → 折叠) -->
-  <div class="sub-section collapsed" id="products">
-    <div class="sub-header collapsible" onclick="toggleSubSection('products')">
-      <h3>🚀 产品发布/更新</h3><span class="sub-count">0 条</span>
-    </div>
-    <div class="empty-section">本日报周期内暂无产品发布或更新资讯</div>
-  </div>
-
-  <!-- Sub: 论文研究 (0 条 → 折叠) -->
-  <div class="sub-section collapsed" id="paper">
-    <div class="sub-header collapsible" onclick="toggleSubSection('paper')">
-      <h3>📄 论文研究</h3><span class="sub-count">0 条</span>
-    </div>
-    <div class="empty-section">本日报周期内暂无论文研究资讯</div>
-  </div>
-
-  <!-- Sub: 技巧与观点 -->
-  <div class="sub-section" id="tip">
-    <div class="sub-header">
-      <h3>💡 技巧与观点</h3><span class="sub-count">4 条</span>
-    </div>
-    <div class="cards-grid">
-      <article class="card tip animate-on-scroll">
-        <div class="card-header"><span class="card-number">3</span><h3>乔木小说创作 Skill 开源发布</h3></div>
-        <div class="card-meta"><span class="source-chip">🐦 X · Vista</span><span class="card-time">📅 日报收录</span></div>
-        <p class="card-summary">开源乔木小说创作 Skill，用户说"我想写一个小说"，AI 自动生成剧情梗概、人物设定，讨论确认后生成完整小说。</p>
-        <a href="https://x.com/vista8/status/2066165703443726749" class="card-action" target="_blank" rel="noopener noreferrer">
-          阅读原文
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </a>
-      </article>
-      <article class="card tip animate-on-scroll">
-        <div class="card-header"><span class="card-number">4</span><h3>Anthropic 上市前夕：CEO 火力全开</h3></div>
-        <div class="card-meta"><span class="source-chip">🐦 X · 小互</span><span class="card-time">📅 日报收录</span></div>
-        <p class="card-summary">Anthropic CEO 透露内部模型有上千漏洞，预言 AI 将在一到五年内取代半数入门白领；Claude 已被美军用于对伊朗战争。</p>
-        <a href="https://x.com/xiaohu/status/2065991805238497732" class="card-action" target="_blank" rel="noopener noreferrer">
-          阅读原文
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </a>
-      </article>
-      <article class="card tip animate-on-scroll">
-        <div class="card-header"><span class="card-number">5</span><h3>白宫 AI 监管决定被指偏袒 OpenAI 与亚马逊</h3></div>
-        <div class="card-meta"><span class="source-chip">📝 Gary Marcus</span><span class="card-time">📅 日报收录</span></div>
-        <p class="card-summary">白宫 AI 监管决定被指偏袒 OpenAI 与亚马逊，缺乏透明度和事实依据，多位专家呼吁建立独立机构负责 AI 监管。</p>
-        <a href="https://garymarcus.substack.com/p/what-washington-must-do" class="card-action" target="_blank" rel="noopener noreferrer">
-          阅读原文
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </a>
-      </article>
-      <article class="card tip animate-on-scroll">
-        <div class="card-header"><span class="card-number">6</span><h3>Satya Nadella：没有生态的前沿不稳定</h3></div>
-        <div class="card-meta"><span class="source-chip">🐦 X · Satya Nadella</span><span class="card-time">📅 日报收录</span></div>
-        <p class="card-summary">微软 CEO 认为 AI 驱动的平台转变首次实现人与数字系统间的认知循环，企业需同时构建人力资本与 token 资本。</p>
-        <a href="https://x.com/satyanadella/status/2066182223213293753" class="card-action" target="_blank" rel="noopener noreferrer">
-          阅读原文
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </a>
-      </article>
-    </div>
-  </div>
+  <div id="aiNewsContainer"><div class="empty-section" style="padding:40px;">🔄 正在加载 AI 资讯…</div></div>
 </section>
 
 <!-- ================================================ -->
@@ -1302,41 +1207,34 @@ body {
     <div class="major-icon" style="background:var(--clr-weather-bg);">🌤️</div>
     <h2 class="major-title">天气看板</h2>
     <span class="major-count">成都双流 · 融创香璟台西苑</span>
-    <span class="freshness-badge snapshot"><span class="freshness-dot"></span>快照内容</span>
+    <span class="freshness-badge live" id="weatherFreshBadge"><span class="freshness-dot"></span>实时数据</span>
   </div>
 
-  <div class="weather-alert animate-on-scroll" style="margin-bottom:20px;">
+  <div class="weather-alert animate-on-scroll" style="margin-bottom:20px;" id="weatherAlert">
     <span style="font-size:1.5rem;">⚠️</span>
     <div>
       <strong>降温提醒：</strong>明天起气温将连续下降，后天（6/17）最高仅 25°C，较今日降约 7°C，且降雨概率升至 75%。建议随身携带薄外套和雨具。
     </div>
   </div>
 
-  <div class="weather-grid">
-    <div class="weather-card animate-on-scroll">
-      <div class="day-label">☀️ 今天 6/15</div>
-      <div class="big-temp">32°</div>
-      <div class="hi-lo">最高 32° / 最低 24.7°</div>
-      <div class="extra">
-        <span>🌥️ 多云</span><span>💧 降雨 37%</span><span>🌬️ 2 级微风</span>
-        <span>💦 湿度 38%</span><span>🤔 体感 33°</span>
-      </div>
+  <div class="weather-grid" id="weatherGrid">
+    <div class="weather-card animate-on-scroll" id="wc0">
+      <div class="day-label">☀️ 今天</div>
+      <div class="big-temp">--°</div>
+      <div class="hi-lo">加载中…</div>
+      <div class="extra"></div>
     </div>
-    <div class="weather-card animate-on-scroll">
-      <div class="day-label">🌤️ 明天 6/16</div>
-      <div class="big-temp" style="color:var(--clr-weather);">28°</div>
-      <div class="hi-lo">最高 28.5° / 最低 23.3° <span style="color:#DC2626;font-weight:600;">↓ 3.5°</span></div>
-      <div class="extra">
-        <span>🌧️ 降雨 56%</span><span>☂️ 建议带伞</span>
-      </div>
+    <div class="weather-card animate-on-scroll" id="wc1">
+      <div class="day-label">📅 明天</div>
+      <div class="big-temp">--°</div>
+      <div class="hi-lo">加载中…</div>
+      <div class="extra"></div>
     </div>
-    <div class="weather-card animate-on-scroll">
-      <div class="day-label">🌧️ 后天 6/17</div>
-      <div class="big-temp" style="color:#6B7280;">25°</div>
-      <div class="hi-lo">最高 25.4° / 最低 22.4° <span style="color:#DC2626;font-weight:600;">↓ 7°</span></div>
-      <div class="extra">
-        <span>🌧️ 降雨 75%</span><span>☔ 记得带伞</span><span>🧥 添衣保暖</span>
-      </div>
+    <div class="weather-card animate-on-scroll" id="wc2">
+      <div class="day-label">📅 后天</div>
+      <div class="big-temp">--°</div>
+      <div class="hi-lo">加载中…</div>
+      <div class="extra"></div>
     </div>
   </div>
 </section>
@@ -1960,6 +1858,7 @@ body {
 
   // WMO weather code → Chinese
   var wmoMap = {0:'晴天',1:'大部晴',2:'多云',3:'阴天',45:'雾',48:'霜雾',51:'毛毛雨',53:'毛毛雨',55:'毛毛雨',61:'小雨',63:'中雨',65:'大雨',71:'小雪',73:'中雪',75:'大雪',80:'阵雨',81:'阵雨',82:'大阵雨',85:'小雪',86:'大雪',95:'雷暴',96:'冰雹雷暴',99:'强冰雹'};
+  var wmoIcon = {0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',71:'🌨️',73:'🌨️',75:'🌨️',80:'🌧️',81:'🌧️',82:'🌧️',85:'❄️',86:'❄️',95:'⛈️',96:'⛈️',99:'⛈️'};
 
   function showTooltip() {
     tooltip.classList.add('show');
@@ -2000,20 +1899,167 @@ body {
     el=document.querySelector('.site-footer p'); if(el)el.textContent='数据截至 '+('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+' 北京时间 · 实时聚合生成';
   }
 
+  /* ===== Weather Forecast Rendering ===== */
+  function renderWeatherCards(daily) {
+    var dayLabels = ['今天','明天','后天'];
+    for (var d = 0; d < 3; d++) {
+      var card = document.getElementById('wc'+d); if (!card) continue;
+      var wc = daily.weather_code[d], tmax = daily.temperature_2m_max[d], tmin = daily.temperature_2m_min[d];
+      var rain = daily.precipitation_probability_max[d], wind = daily.wind_speed_10m_max[d];
+      var label = dayLabels[d];
+      if (d === 0) {
+        var now = new Date();
+        label = '今天 ' + (now.getMonth()+1) + '/' + now.getDate();
+      } else if (d === 1) {
+        var t = new Date(); t.setDate(t.getDate()+1);
+        label = '明天 ' + (t.getMonth()+1) + '/' + t.getDate();
+      } else {
+        var t = new Date(); t.setDate(t.getDate()+2);
+        label = '后天 ' + (t.getMonth()+1) + '/' + t.getDate();
+      }
+      var icon = wmoIcon[wc] || '🌤️';
+      var desc = wmoMap[wc] || '多云';
+      card.querySelector('.day-label').textContent = icon + ' ' + label;
+      card.querySelector('.big-temp').textContent = Math.round(tmax) + '°';
+      card.querySelector('.big-temp').removeAttribute('style');
+
+      // Temperature difference from previous day
+      var prevMax = d > 0 ? daily.temperature_2m_max[d-1] : tmax;
+      var diff = Math.round(tmax - prevMax);
+      var diffHtml = '';
+      if (d > 0 && diff !== 0) {
+        var arrow = diff > 0 ? '↑' : '↓';
+        var diffColor = diff > 0 ? '#DC2626' : '#059669';
+        diffHtml = ' <span style="color:' + diffColor + ';font-weight:600;">' + arrow + ' ' + Math.abs(diff) + '°</span>';
+      }
+      var hiLo = '最高 ' + Math.round(tmax) + '° / 最低 ' + Math.round(tmin) + '°' + diffHtml;
+      card.querySelector('.hi-lo').innerHTML = hiLo;
+
+      var extras = [];
+      extras.push('<span>' + icon + ' ' + desc + '</span>');
+      extras.push('<span>💧 降雨 ' + rain + '%</span>');
+      if (wind < 12) extras.push('<span>🌬️ 微风 ' + Math.round(wind) + ' km/h</span>');
+      else if (wind < 30) extras.push('<span>💨 大风 ' + Math.round(wind) + ' km/h</span>');
+      else extras.push('<span>🌪️ 强风 ' + Math.round(wind) + ' km/h</span>');
+      if (rain >= 50) extras.push('<span>☂️ 建议带伞</span>');
+      if (d > 0 && diff < -4) extras.push('<span>🧥 添衣保暖</span>');
+      card.querySelector('.extra').innerHTML = extras.join('');
+    }
+
+    // Weather alert
+    var alertEl = document.getElementById('weatherAlert');
+    if (alertEl) {
+      var rain3 = daily.precipitation_probability_max.slice(0,3);
+      var maxRain = Math.max.apply(null, rain3);
+      var tDiff = Math.round(daily.temperature_2m_max[2] - daily.temperature_2m_max[0]);
+      var msg = '';
+      if (maxRain >= 70) {
+        msg = '<span style="font-size:1.5rem;">🌧️</span><div><strong>降雨提醒：</strong>未来3天降雨概率最高达 '+maxRain+'%，建议随身携带雨具。</div>';
+      } else if (tDiff <= -5) {
+        msg = '<span style="font-size:1.5rem;">🥶</span><div><strong>降温提醒：</strong>后天最高气温将降至 '+Math.round(daily.temperature_2m_max[2])+'°C，较今日降约 '+Math.abs(tDiff)+'°C，建议添衣保暖。</div>';
+      } else if (maxRain >= 50) {
+        msg = '<span style="font-size:1.5rem;">⛅</span><div><strong>天气提醒：</strong>未来3天有降雨可能（最高 '+maxRain+'%），出行注意天气变化。</div>';
+      }
+      if (msg) alertEl.innerHTML = msg;
+      else alertEl.innerHTML = '';
+    }
+  }
+
+  /* ===== AI News Fetch & Render ===== */
+  function timeAgo(isoStr) {
+    var pub = new Date(isoStr), now = new Date();
+    var diffMin = Math.floor((now - pub) / 60000);
+    if (diffMin < 60) return diffMin + ' 分钟前';
+    if (diffMin < 1440) return Math.floor(diffMin / 60) + ' 小时前';
+    return Math.floor(diffMin / 1440) + ' 天前';
+  }
+
+  function sourceIcon(source) {
+    if (source.indexOf('公众号')>=0 || source.indexOf('微信')>=0) return '📱 ';
+    if (source.indexOf('X：')>=0 || source.indexOf('@')>=0) return '🐦 ';
+    if (source.indexOf('TechCrunch')>=0) return '📰 ';
+    if (source.indexOf('Bloomberg')>=0) return '📊 ';
+    return '📝 ';
+  }
+
+  function renderAINews(items) {
+    var container = document.getElementById('aiNewsContainer');
+    var countEl = document.getElementById('aiNewsCount');
+    if (!container) return;
+
+    if (!items || !items.length) {
+      container.innerHTML = '<div class="empty-section" style="padding:40px;">📭 暂无 AI 资讯，请稍后刷新</div>';
+      if (countEl) countEl.textContent = '暂无数据';
+      return;
+    }
+
+    // Group by category
+    var cats = {
+      'ai-models':  {icon:'🤖', title:'模型发布/更新', items:[]},
+      'ai-products':{icon:'🚀', title:'产品发布/更新', items:[]},
+      'industry':   {icon:'📡', title:'行业动态', items:[]},
+      'paper':      {icon:'📄', title:'论文研究', items:[]},
+      'tip':        {icon:'💡', title:'技巧与观点', items:[]}
+    };
+    items.forEach(function(item) {
+      var cat = item.category || 'industry';
+      if (cats[cat]) cats[cat].items.push(item);
+    });
+
+    var totalCount = items.length;
+    if (countEl) countEl.textContent = '过去24小时精选 · 共 ' + totalCount + ' 条';
+
+    var globalNum = 0;
+    var html = '';
+    var catOrder = ['ai-models','ai-products','industry','paper','tip'];
+    catOrder.forEach(function(key) {
+      var cat = cats[key];
+      var count = cat.items.length;
+      if (count === 0) {
+        html += '<div class="sub-section collapsed" id="' + key + '">';
+        html += '<div class="sub-header collapsible" onclick="toggleSubSection(\'' + key + '\')">';
+        html += '<h3>' + cat.icon + ' ' + cat.title + '</h3><span class="sub-count">0 条</span></div>';
+        html += '<div class="empty-section">暂无相关资讯</div></div>';
+        return;
+      }
+
+      html += '<div class="sub-section" id="' + key + '">';
+      html += '<div class="sub-header"><h3>' + cat.icon + ' ' + cat.title + '</h3><span class="sub-count">' + count + ' 条</span></div>';
+      html += '<div class="cards-grid">';
+
+      cat.items.forEach(function(item) {
+        globalNum++;
+        html += '<article class="card ' + key + ' animate-on-scroll">';
+        html += '<div class="card-header"><span class="card-number">' + globalNum + '</span><h3>' + (item.title || '') + '</h3></div>';
+        html += '<div class="card-meta"><span class="source-chip">' + sourceIcon(item.source) + (item.source||'未知来源') + '</span><span class="card-time">⏱ ' + timeAgo(item.publishedAt) + '</span></div>';
+        html += '<p class="card-summary">' + (item.summary || '') + '</p>';
+        html += '<a href="' + (item.url||'#') + '" class="card-action" target="_blank" rel="noopener noreferrer">阅读原文 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>';
+        html += '</article>';
+      });
+
+      html += '</div></div>';
+    });
+
+    container.innerHTML = html;
+  }
+
+  /* ===== Refresh Handler ===== */
   btn.addEventListener('click', function() {
     btn.classList.add('spinning');
     showToast('正在获取最新数据...', 'info');
 
     Promise.all([
-      // 1. Weather
-      fetch('https://api.open-meteo.com/v1/forecast?latitude=30.5728&longitude=104.0668&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code&timezone=Asia/Shanghai&forecast_days=1')
+      // 1. Weather (current + 7-day forecast)
+      fetch('https://api.open-meteo.com/v1/forecast?latitude=30.5728&longitude=104.0668&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,wind_speed_10m_max&timezone=Asia/Shanghai&forecast_days=7')
         .then(function(r){return r.json();}).then(function(d){return{tag:'weather',ok:true,data:d};}).catch(function(){return{tag:'weather',ok:false};}),
       // 2. 上证指数
       loadVar('https://qt.gtimg.cn/q=sh000001','v_sh000001').then(function(d){return{tag:'sh',ok:true,data:d};}).catch(function(){return{tag:'sh',ok:false};}),
       // 3. 纳斯达克
       loadVar('https://qt.gtimg.cn/q=usIXIC','v_usIXIC').then(function(d){return{tag:'nasdaq',ok:true,data:d};}).catch(function(){return{tag:'nasdaq',ok:false};}),
       // 4. 黄金 (Sina JSONP)
-      loadVar('https://hq.sinajs.cn/list=hf_XAU','hq_str_hf_XAU').then(function(d){return{tag:'gold',ok:true,data:d};}).catch(function(){return{tag:'gold',ok:false};})
+      loadVar('https://hq.sinajs.cn/list=hf_XAU','hq_str_hf_XAU').then(function(d){return{tag:'gold',ok:true,data:d};}).catch(function(){return{tag:'gold',ok:false};}),
+      // 5. AI News (via server proxy)
+      fetch('/api/aihot/items?mode=selected&take=8').then(function(r){return r.json();}).then(function(d){return{tag:'ainews',ok:true,data:d};}).catch(function(){return{tag:'ainews',ok:false};})
     ]).then(function(rs){
       var ok=0;
       rs.forEach(function(r){
@@ -2021,9 +2067,12 @@ body {
 
         if(r.tag==='weather'){
           var c=r.data.current;
+          var d=r.data.daily;
           var t=document.querySelector('.hero-weather-brief .temp'); if(t)t.textContent=Math.round(c.temperature_2m)+'°';
           var s=document.querySelector('.hero-weather-brief .desc strong'); if(s)s.textContent='成都双流 · '+(wmoMap[c.weather_code]||'多云');
-          var d=document.querySelector('.hero-weather-brief .desc span'); if(d)d.textContent='体感 '+Math.round(c.apparent_temperature)+'° · 湿度 '+c.relative_humidity_2m+'% · 微风 '+Math.round(c.wind_speed_10m)+' 级';
+          var desc=document.querySelector('.hero-weather-brief .desc span'); if(desc)desc.textContent='体感 '+Math.round(c.apparent_temperature)+'° · 湿度 '+c.relative_humidity_2m+'% · 微风 '+Math.round(c.wind_speed_10m)+' 级';
+          // Render forecast cards
+          if(d) renderWeatherCards(d);
           ok++;
         }
 
@@ -2032,8 +2081,6 @@ body {
             var cur=parseFloat(p[3]), prev=parseFloat(p[4]), pct=fmtPct(cur,prev);
             var items=document.querySelectorAll('.hero-fin-item');
             if(items[0]){items[0].querySelector('.hero-fin-val').textContent=fmtVal(cur);items[0].querySelector('.hero-fin-label').innerHTML='上证 <small style="opacity:0.75;margin-left:2px;">'+pct+'</small>';}
-            // Also update finance card
-            var fc=document.querySelector('.fin-item .name'); /* first fin-item */
             var all=document.querySelectorAll('.fin-item');
             for(var i=0;i<all.length;i++){if(all[i].querySelector('.name')&&all[i].querySelector('.name').textContent==='上证指数'){var upCls=cur>=prev?'fin-up':'fin-down';all[i].querySelector('.val').innerHTML=fmtVal(cur)+' <span class="'+upCls+'">'+pct+'</span>';break;}}
             ok++;
@@ -2054,27 +2101,40 @@ body {
             var cur=parseFloat(p[0]), prev=parseFloat(p[1]), pct=fmtPct(cur,prev);
             var items=document.querySelectorAll('.hero-fin-item');
             if(items[1]){items[1].querySelector('.hero-fin-val').textContent='$'+fmtVal(cur);items[1].querySelector('.hero-fin-label').innerHTML='黄金 <small style="opacity:0.75;margin-left:2px;">'+pct+'</small>';}
-            // Update gold card
             var gv=document.querySelector('.finance-card:nth-child(3) .fin-value'); if(gv)gv.textContent='$'+fmtVal(cur);
             var gd=document.querySelector('.finance-card:nth-child(3) .fin-change'); if(gd){gd.textContent='COMEX 黄金 · 美元/盎司';gd.className='fin-change '+(cur>=prev?'fin-up':'fin-down');}
             ok++;
           }
+        }
+
+        if(r.tag==='ainews'){
+          renderAINews(r.data.items);
+          ok++;
         }
       });
 
       updateTime();
       pulseLiveIndicators();
       btn.classList.remove('spinning');
-      showToast(ok>=3?'✅ 数据已刷新':'⚠️ 部分数据获取失败 ('+ok+'/4)', ok>=3?'success':'error');
+      showToast(ok>=4?'✅ 数据已刷新':'⚠️ 部分数据获取失败 ('+ok+'/5)', ok>=4?'success':'error');
     }).catch(function(){
       btn.classList.remove('spinning');
       showToast('❌ 网络错误，请稍后重试','error');
     });
   });
 
+  // Auto-run on page load
+  (function() {
+    // Weather forecast (auto)
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=30.5728&longitude=104.0668&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,wind_speed_10m_max&timezone=Asia/Shanghai&forecast_days=7')
+      .then(function(r){return r.json();}).then(function(d){if(d.daily) renderWeatherCards(d.daily);}).catch(function(){});
+    // AI News (auto)
+    fetch('/api/aihot/items?mode=selected&take=8').then(function(r){return r.json();}).then(function(d){renderAINews(d.items);}).catch(function(){var c=document.getElementById('aiNewsContainer');if(c)c.innerHTML='<div class="empty-section" style="padding:40px;">⚠️ AI 资讯加载失败，请点击刷新按钮重试</div>';});
+  })();
+
   /* Pulse live data indicators to show freshness */
   function pulseLiveIndicators() {
-    var tags = document.querySelectorAll('.hero-freshness-tag, #finFreshBadge');
+    var tags = document.querySelectorAll('.hero-freshness-tag, #finFreshBadge, #weatherFreshBadge, #aiNewsBadge');
     tags.forEach(function(tag) {
       tag.style.transform = 'scale(1.08)';
       tag.style.transition = 'transform 0.15s ease-out';
