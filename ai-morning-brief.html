@@ -81,10 +81,11 @@
   background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1);
 }
 [data-theme="dark"] .hero-stat:hover { background: rgba(255,255,255,0.1); }
-[data-theme="dark"] .hero-weather-brief,
-[data-theme="dark"] .hero-finance-brief {
+[data-theme="dark"] .hero-weather-brief {
   background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1);
 }
+[data-theme="dark"] .hero-fin-item { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12); }
+[data-theme="dark"] .hero-fin-item:hover { background: rgba(255,255,255,0.14); }
 [data-theme="dark"] .nav-link { background: var(--card-bg); border-color: var(--border); color: var(--text-secondary); }
 [data-theme="dark"] .nav-link:hover { color: var(--primary); }
 [data-theme="dark"] .nav-badge { background: #1E1E28; color: var(--text-muted); }
@@ -188,34 +189,34 @@ body {
   font-size: 1.05rem; opacity: 0.85; font-weight: 400; margin-bottom: 28px;
   text-shadow: 0 1px 4px rgba(0,0,0,0.1);
 }
+.hero-brief-row {
+  display: flex; justify-content: center; align-items: stretch; gap: 14px;
+  flex-wrap: wrap; margin-bottom: 14px;
+}
 .hero-weather-brief {
   display: inline-flex; align-items: center; gap: 16px;
   background: rgba(255,255,255,0.15); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   border: 1px solid rgba(255,255,255,0.22);
   border-radius: var(--radius-md); padding: 10px 24px;
-  font-size: 0.95rem; margin-bottom: 8px;
+  font-size: 0.95rem;
 }
 .hero-finance-brief {
-  display: inline-flex; align-items: center; gap: 20px;
-  background: rgba(255,255,255,0.15); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(255,255,255,0.22);
-  border-radius: var(--radius-md); padding: 10px 24px;
-  font-size: 0.95rem; margin-bottom: 12px;
+  display: flex; align-items: stretch; gap: 10px;
 }
 .hero-wb-left { display: flex; align-items: center; gap: 8px; }
-.hero-wb-divider {
-  width: 1px; height: 40px; background: rgba(255,255,255,0.25);
-  flex-shrink: 0;
+.hero-fin-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+  background: rgba(255,255,255,0.14); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: var(--radius-md); padding: 13px 22px; min-width: 110px;
+  transition: transform 0.2s, background 0.2s; cursor: default;
 }
-.hero-wb-right { display: flex; flex-direction: column; gap: 4px; }
-.hero-fin-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; }
-.hero-fin-label {
-  font-weight: 800; min-width: 32px; font-size: 0.76rem; color: #fff;
-}
-.hero-fin-val { font-weight: 700; }
+.hero-fin-item:hover { transform: translateY(-2px); background: rgba(255,255,255,0.22); }
+.hero-fin-val { font-size: 1.55rem; font-weight: 800; line-height: 1; }
 .hero-fin-val.up { color: #FFD6D6; }
 .hero-fin-val.down { color: #A7F3D0; }
-.hero-fin-val small { font-weight: 500; opacity: 0.8; font-size: 0.72rem; margin-left: 2px; }
+.hero-fin-val small { font-weight: 500; opacity: 0.75; font-size: 0.72rem; margin-left: 3px; }
+.hero-fin-label { font-size: 0.76rem; opacity: 0.82; margin-top: 3px; color: #fff; }
 .hero-weather-brief .temp { font-size: 2.2rem; font-weight: 800; line-height: 1; }
 .hero-weather-brief .desc { text-align: left; line-height: 1.5; }
 .hero-weather-brief .desc span { display: block; font-size: 0.78rem; opacity: 0.7; }
@@ -676,15 +677,14 @@ body {
   .nav-section { padding: 20px 12px 0; gap: 6px; }
   .nav-link { padding: 7px 13px; font-size: 0.78rem; }
   .card { padding: 16px 18px; }
+  .hero-brief-row { gap: 8px; }
   .hero-weather-brief {
-    padding: 10px 18px;
-    flex-direction: column; align-items: flex-start; gap: 8px;
+    padding: 10px 16px; min-width: 0; flex: 1 1 auto;
   }
-  .hero-finance-brief {
-    padding: 10px 18px; gap: 16px;
-  }
-  .hero-wb-divider { display: none; }
-  .hero-wb-right { flex-direction: row; gap: 16px; }
+  .hero-finance-brief { gap: 6px; }
+  .hero-fin-item { padding: 10px 10px; min-width: 0; flex: 1 1 0; }
+  .hero-fin-val { font-size: 1.2rem; }
+  .hero-fin-label { font-size: 0.65rem; margin-top: 2px; }
   .hero-weather-brief .temp { font-size: 1.7rem; }
   .theme-toggle { top: 10px; right: 10px; width: 36px; height: 36px; }
   .theme-toggle svg { width: 17px; height: 17px; }
@@ -864,6 +864,7 @@ body {
     <h1>AI · 市场 · 天气 · 全球速览</h1>
     <p class="hero-subtitle">2026年6月15日 星期一 · 数据截至 16:45 北京时间</p>
 
+    <div class="hero-brief-row">
     <div class="hero-weather-brief">
       <div class="hero-wb-left">
         <span class="temp">32°</span>
@@ -875,13 +876,14 @@ body {
     </div>
     <div class="hero-finance-brief">
       <div class="hero-fin-item">
-        <span class="hero-fin-label">上证</span>
-        <span class="hero-fin-val up">4096.47 <small>+1.61%</small></span>
+        <div class="hero-fin-val up">4096.47 <small>+1.61%</small></div>
+        <div class="hero-fin-label">上证</div>
       </div>
       <div class="hero-fin-item">
-        <span class="hero-fin-label">黄金</span>
-        <span class="hero-fin-val up">$4,219.32 <small>+0.20%</small></span>
+        <div class="hero-fin-val up">$4,219.32 <small>+0.20%</small></div>
+        <div class="hero-fin-label">黄金</div>
       </div>
+    </div>
     </div>
 
     <div class="hero-stats">
