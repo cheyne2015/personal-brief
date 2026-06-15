@@ -1882,11 +1882,14 @@ body {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(initSnap));
   }
 
-  /* ===== Refresh Button ===== */
+  /* ===== Refresh Button - Real API Data Loading ===== */
   var btn = document.getElementById('refreshBtn');
   var tooltip = document.getElementById('refreshTooltip');
   var toast = document.getElementById('refreshToast');
   var tooltipTimer;
+
+  // WMO weather code → Chinese
+  var wmoMap = {0:'晴天',1:'大部晴',2:'多云',3:'阴天',45:'雾',48:'霜雾',51:'毛毛雨',53:'毛毛雨',55:'毛毛雨',61:'小雨',63:'中雨',65:'大雨',71:'小雪',73:'中雪',75:'大雪',80:'阵雨',81:'阵雨',82:'大阵雨',85:'小雪',86:'大雪',95:'雷暴',96:'冰雹雷暴',99:'强冰雹'};
 
   function showTooltip() {
     tooltip.classList.add('show');
@@ -1897,30 +1900,105 @@ body {
   function showToast(msg, type) {
     toast.textContent = msg;
     toast.className = 'refresh-toast ' + (type || 'info') + ' show';
-    setTimeout(function() { toast.classList.remove('show'); }, 2600);
+    setTimeout(function() { toast.classList.remove('show'); }, 3000);
   }
 
   btn.addEventListener('mouseenter', showTooltip);
   btn.addEventListener('focus', showTooltip);
   setTimeout(showTooltip, 800);
 
+  // JSONP script loader (Tencent/Sina global-var pattern)
+  function loadVar(url, vname) {
+    return new Promise(function(resolve, reject) {
+      var s = document.createElement('script');
+      var done = false;
+      var t = setTimeout(function() { if(!done){done=true;s.remove();reject(new Error('timeout'));} }, 8000);
+      s.onload = function() { if(done)return;done=true;clearTimeout(t);var v=window[vname];s.remove();if(v!==undefined)resolve(v);else reject(new Error('no var')); };
+      s.onerror = function() { if(done)return;done=true;clearTimeout(t);s.remove();reject(new Error('network')); };
+      s.src = url;
+      document.head.appendChild(s);
+    });
+  }
+
+  function fmtVal(n) { n=parseFloat(n); if(isNaN(n))return'--'; if(Math.abs(n)>=100)return Math.round(n).toLocaleString(); return n.toFixed(1); }
+  function fmtPct(curr,prev) { var p=((curr-prev)/prev*100); return (p>=0?'+':'')+p.toFixed(1)+'%'; }
+
+  function updateTime() {
+    var n=new Date(), wd=['日','一','二','三','四','五','六'];
+    var ts=n.getFullYear()+'年'+(n.getMonth()+1)+'月'+n.getDate()+'日 星期'+wd[n.getDay()]+' · 数据截至 '+('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+' 北京时间';
+    var el=document.querySelector('.hero-subtitle'); if(el)el.textContent=ts;
+    el=document.querySelector('.site-footer p'); if(el)el.textContent='数据截至 '+('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+' 北京时间 · 实时聚合生成';
+  }
+
   btn.addEventListener('click', function() {
     btn.classList.add('spinning');
-    setTimeout(function() { btn.classList.remove('spinning'); }, 850);
+    showToast('正在获取最新数据...', 'info');
 
-    // Save current snapshot for comparison after reload
-    var currentSnap = buildSnapshot();
-    sessionStorage.setItem(PENDING_KEY, JSON.stringify(currentSnap));
+    Promise.all([
+      // 1. Weather
+      fetch('https://api.open-meteo.com/v1/forecast?latitude=30.5728&longitude=104.0668&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code&timezone=Asia/Shanghai&forecast_days=1')
+        .then(function(r){return r.json();}).then(function(d){return{tag:'weather',ok:true,data:d};}).catch(function(){return{tag:'weather',ok:false};}),
+      // 2. 上证指数
+      loadVar('https://qt.gtimg.cn/q=sh000001','v_sh000001').then(function(d){return{tag:'sh',ok:true,data:d};}).catch(function(){return{tag:'sh',ok:false};}),
+      // 3. 纳斯达克
+      loadVar('https://qt.gtimg.cn/q=usIXIC','v_usIXIC').then(function(d){return{tag:'nasdaq',ok:true,data:d};}).catch(function(){return{tag:'nasdaq',ok:false};}),
+      // 4. 黄金 (Sina JSONP)
+      loadVar('https://hq.sinajs.cn/list=hf_XAU','hq_str_hf_XAU').then(function(d){return{tag:'gold',ok:true,data:d};}).catch(function(){return{tag:'gold',ok:false};})
+    ]).then(function(rs){
+      var ok=0;
+      rs.forEach(function(r){
+        if(!r.ok)return;
 
-    showToast('📸 已保存快照，正在刷新...', 'info');
+        if(r.tag==='weather'){
+          var c=r.data.current;
+          var t=document.querySelector('.hero-weather-brief .temp'); if(t)t.textContent=Math.round(c.temperature_2m)+'°';
+          var s=document.querySelector('.hero-weather-brief .desc strong'); if(s)s.textContent='成都双流 · '+(wmoMap[c.weather_code]||'多云');
+          var d=document.querySelector('.hero-weather-brief .desc span'); if(d)d.textContent='体感 '+Math.round(c.apparent_temperature)+'° · 湿度 '+c.relative_humidity_2m+'% · 微风 '+Math.round(c.wind_speed_10m)+' 级';
+          ok++;
+        }
 
-    // Reload with cache-busting
-    var sep = location.href.indexOf('?') === -1 ? '?' : '&';
-    var newUrl = location.href.replace(/[?&]_t=\d+/, '') + sep + '_t=' + Date.now();
+        if(r.tag==='sh'){
+          var p=r.data.split('~'); if(p.length>=5){
+            var cur=parseFloat(p[3]), prev=parseFloat(p[4]), pct=fmtPct(cur,prev);
+            var items=document.querySelectorAll('.hero-fin-item');
+            if(items[0]){items[0].querySelector('.hero-fin-val').textContent=fmtVal(cur);items[0].querySelector('.hero-fin-label').innerHTML='上证 <small style="opacity:0.75;margin-left:2px;">'+pct+'</small>';}
+            // Also update finance card
+            var fc=document.querySelector('.fin-item .name'); /* first fin-item */
+            var all=document.querySelectorAll('.fin-item');
+            for(var i=0;i<all.length;i++){if(all[i].querySelector('.name')&&all[i].querySelector('.name').textContent==='上证指数'){var upCls=cur>=prev?'fin-up':'fin-down';all[i].querySelector('.val').innerHTML=fmtVal(cur)+' <span class="'+upCls+'">'+pct+'</span>';break;}}
+            ok++;
+          }
+        }
 
-    setTimeout(function() {
-      location.replace(newUrl);
-    }, 600);
+        if(r.tag==='nasdaq'){
+          var p=r.data.split('~'); if(p.length>=5){
+            var cur=parseFloat(p[3]), prev=parseFloat(p[4]), pct=fmtPct(cur,prev);
+            var all=document.querySelectorAll('.fin-item');
+            for(var i=0;i<all.length;i++){if(all[i].querySelector('.name')&&all[i].querySelector('.name').textContent==='纳斯达克'){var upCls=cur>=prev?'fin-up':'fin-down';all[i].querySelector('.val').innerHTML=fmtVal(cur)+' <span class="'+upCls+'">'+pct+'</span>';break;}}
+            ok++;
+          }
+        }
+
+        if(r.tag==='gold'){
+          var p=r.data.split(','); if(p.length>=2){
+            var cur=parseFloat(p[0]), prev=parseFloat(p[1]), pct=fmtPct(cur,prev);
+            var items=document.querySelectorAll('.hero-fin-item');
+            if(items[1]){items[1].querySelector('.hero-fin-val').textContent='$'+fmtVal(cur);items[1].querySelector('.hero-fin-label').innerHTML='黄金 <small style="opacity:0.75;margin-left:2px;">'+pct+'</small>';}
+            // Update gold card
+            var gv=document.querySelector('.finance-card:nth-child(3) .fin-value'); if(gv)gv.textContent='$'+fmtVal(cur);
+            var gd=document.querySelector('.finance-card:nth-child(3) .fin-change'); if(gd){gd.textContent='COMEX 黄金 · 美元/盎司';gd.className='fin-change '+(cur>=prev?'fin-up':'fin-down');}
+            ok++;
+          }
+        }
+      });
+
+      updateTime();
+      btn.classList.remove('spinning');
+      showToast(ok>=3?'✅ 数据已刷新':'⚠️ 部分数据获取失败 ('+ok+'/4)', ok>=3?'success':'error');
+    }).catch(function(){
+      btn.classList.remove('spinning');
+      showToast('❌ 网络错误，请稍后重试','error');
+    });
   });
 
   /* ===== Keyboard shortcut: Esc to close diff ===== */
