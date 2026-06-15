@@ -2123,14 +2123,44 @@ body {
     });
   });
 
-  // Auto-run on page load
-  (function() {
+  // Auto-run on DOM ready
+  function initAutoLoad() {
     // Weather forecast (auto)
     fetch('https://api.open-meteo.com/v1/forecast?latitude=30.5728&longitude=104.0668&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,wind_speed_10m_max&timezone=Asia/Shanghai&forecast_days=7')
-      .then(function(r){return r.json();}).then(function(d){if(d.daily) renderWeatherCards(d.daily);}).catch(function(){});
-    // AI News (auto)
-    fetch('/api/aihot/items?mode=selected&take=8').then(function(r){return r.json();}).then(function(d){renderAINews(d.items);}).catch(function(){var c=document.getElementById('aiNewsContainer');if(c)c.innerHTML='<div class="empty-section" style="padding:40px;">⚠️ AI 资讯加载失败，请点击刷新按钮重试</div>';});
-  })();
+      .then(function(r){return r.json();}).then(function(d){if(d.daily) renderWeatherCards(d.daily);}).catch(function(e){console.error('Weather auto-load failed:',e);});
+
+    // AI News (auto) - with robust error handling
+    var c = document.getElementById('aiNewsContainer');
+    if (!c) { console.error('aiNewsContainer not found'); return; }
+
+    var cnt = document.getElementById('aiNewsCount');
+    var badge = document.getElementById('aiNewsBadge');
+
+    fetch('/api/aihot/items?mode=selected&take=8')
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function(d) {
+        if (!d || !d.items) { console.error('AI news API: no items in response', d); throw new Error('empty response'); }
+        renderAINews(d.items);
+        // Switch to live badge
+        if (badge) { badge.className = 'freshness-badge live'; badge.innerHTML = '<span class="freshness-dot"></span>实时数据'; }
+      })
+      .catch(function(e) {
+        console.error('AI news auto-load error:', e);
+        if (c) c.innerHTML = '<div class="empty-section" style="padding:40px;color:#DC2626;">⚠️ AI 资讯加载失败，请点击右下角刷新按钮重试<br><small style="opacity:0.6;margin-top:8px;display:block;">' + (e.message||'网络错误') + '</small></div>';
+        if (cnt) cnt.textContent = '加载失败';
+        if (badge) { badge.className = 'freshness-badge snapshot'; badge.innerHTML = '<span class="freshness-dot"></span>加载失败'; }
+      });
+  }
+
+  // Run as soon as DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAutoLoad);
+  } else {
+    initAutoLoad();
+  }
 
   /* Pulse live data indicators to show freshness */
   function pulseLiveIndicators() {
