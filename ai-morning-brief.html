@@ -81,7 +81,8 @@
   background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1);
 }
 [data-theme="dark"] .hero-stat:hover { background: rgba(255,255,255,0.1); }
-[data-theme="dark"] .hero-weather-brief {
+[data-theme="dark"] .hero-weather-brief,
+[data-theme="dark"] .hero-finance-brief {
   background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1);
 }
 [data-theme="dark"] .nav-link { background: var(--card-bg); border-color: var(--border); color: var(--text-secondary); }
@@ -191,7 +192,14 @@ body {
   display: inline-flex; align-items: center; gap: 16px;
   background: rgba(255,255,255,0.15); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   border: 1px solid rgba(255,255,255,0.22);
-  border-radius: var(--radius-md); padding: 12px 24px;
+  border-radius: var(--radius-md); padding: 10px 24px;
+  font-size: 0.95rem; margin-bottom: 8px;
+}
+.hero-finance-brief {
+  display: inline-flex; align-items: center; gap: 20px;
+  background: rgba(255,255,255,0.15); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.22);
+  border-radius: var(--radius-md); padding: 10px 24px;
   font-size: 0.95rem; margin-bottom: 12px;
 }
 .hero-wb-left { display: flex; align-items: center; gap: 8px; }
@@ -598,45 +606,40 @@ body {
 
 /* ===== Refresh Button ===== */
 .refresh-btn {
-  position: fixed; bottom: 28px; right: 28px; z-index: 999;
-  width: 54px; height: 54px; border-radius: 50%;
+  position: fixed; bottom: 24px; right: 24px; z-index: 999;
+  width: 42px; height: 42px; border-radius: 50%;
   background: linear-gradient(135deg, var(--gradient-start), var(--primary-dark));
   color: #fff; border: none; cursor: pointer;
   box-shadow: 0 4px 20px rgba(200,60,40,0.35);
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.4rem; transition: transform 0.25s, box-shadow 0.25s, opacity 0.25s;
+  font-size: 1.15rem; transition: transform 0.25s, box-shadow 0.25s, opacity 0.25s;
   outline: none; -webkit-tap-highlight-color: transparent;
 }
-.refresh-btn:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(200,60,40,0.45); }
+.refresh-btn:hover { transform: scale(1.12); box-shadow: 0 6px 28px rgba(200,60,40,0.45); }
 .refresh-btn:active { transform: scale(0.95); }
 .refresh-btn.spinning svg { animation: spin 0.8s ease-in-out; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ===== Back to Top Button ===== */
 .back-top-btn {
-  position: fixed; bottom: 92px; right: 28px; z-index: 998;
-  width: 44px; height: 44px; border-radius: 50%;
-  background: var(--card-bg); color: var(--text-secondary);
-  border: 1px solid var(--border); cursor: pointer;
-  box-shadow: var(--shadow-md);
+  position: fixed; bottom: 74px; right: 24px; z-index: 998;
+  width: 42px; height: 42px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--gradient-start), var(--primary-dark));
+  color: #fff; border: none; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(200,60,40,0.35);
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.15rem; transition: transform 0.25s, box-shadow 0.25s, opacity 0.3s, background 0.35s;
+  font-size: 1.15rem; transition: transform 0.25s, box-shadow 0.25s, opacity 0.3s;
   outline: none; -webkit-tap-highlight-color: transparent;
   opacity: 0; visibility: hidden; transform: translateY(12px) scale(0.85);
 }
 .back-top-btn.visible {
   opacity: 1; visibility: visible; transform: translateY(0) scale(1);
 }
-.back-top-btn:hover {
-  color: var(--primary); border-color: var(--primary-light);
-  background: #FFF5F2; transform: translateY(-3px) scale(1);
-}
-[data-theme="dark"] .back-top-btn:hover {
-  background: rgba(232,69,60,0.10); border-color: var(--primary);
-}
+.back-top-btn:hover { transform: scale(1.12); box-shadow: 0 6px 28px rgba(200,60,40,0.45); }
+.back-top-btn:active { transform: scale(0.95); }
 
 .refresh-tooltip {
-  position: fixed; bottom: 92px; right: 28px; z-index: 999;
+  position: fixed; bottom: 124px; right: 24px; z-index: 999;
   background: var(--text); color: #fff; font-size: 0.8rem;
   padding: 8px 14px; border-radius: 8px;
   pointer-events: none; opacity: 0; transform: translateY(6px);
@@ -677,7 +680,10 @@ body {
     padding: 10px 18px;
     flex-direction: column; align-items: flex-start; gap: 8px;
   }
-  .hero-wb-divider { width: auto; height: 1px; }
+  .hero-finance-brief {
+    padding: 10px 18px; gap: 16px;
+  }
+  .hero-wb-divider { display: none; }
   .hero-wb-right { flex-direction: row; gap: 16px; }
   .hero-weather-brief .temp { font-size: 1.7rem; }
   .theme-toggle { top: 10px; right: 10px; width: 36px; height: 36px; }
@@ -687,7 +693,9 @@ body {
     padding: 8px 5px; font-size: 0.76rem; min-width: 56px;
     border-radius: 8px; line-height: 1.2;
   }
-  .back-top-btn { bottom: 80px; right: 18px; width: 40px; height: 40px; }
+  .back-top-btn { bottom: 66px; right: 20px; width: 38px; height: 38px; font-size: 1rem; }
+  .refresh-btn { bottom: 20px; right: 20px; width: 38px; height: 38px; font-size: 1rem; }
+  .refresh-tooltip { bottom: 112px; right: 16px; }
 }
 @media (max-width: 480px) {
   .hero h1 { font-size: 1.5rem; }
@@ -864,16 +872,15 @@ body {
           <span>体感 33° · 湿度 38% · 微风 2 级</span>
         </div>
       </div>
-      <div class="hero-wb-divider"></div>
-      <div class="hero-wb-right">
-        <div class="hero-fin-item">
-          <span class="hero-fin-label">上证</span>
-          <span class="hero-fin-val up">4096.47 <small>+1.61%</small></span>
-        </div>
-        <div class="hero-fin-item">
-          <span class="hero-fin-label">黄金</span>
-          <span class="hero-fin-val up">$4,219.32 <small>+0.20%</small></span>
-        </div>
+    </div>
+    <div class="hero-finance-brief">
+      <div class="hero-fin-item">
+        <span class="hero-fin-label">上证</span>
+        <span class="hero-fin-val up">4096.47 <small>+1.61%</small></span>
+      </div>
+      <div class="hero-fin-item">
+        <span class="hero-fin-label">黄金</span>
+        <span class="hero-fin-val up">$4,219.32 <small>+0.20%</small></span>
       </div>
     </div>
 
