@@ -84,8 +84,8 @@
 [data-theme="dark"] .hero-weather-brief {
   background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1);
 }
-[data-theme="dark"] .hero-fin-item { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12); }
-[data-theme="dark"] .hero-fin-item:hover { background: rgba(255,255,255,0.14); }
+[data-theme="dark"] .hero-finance-brief { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12); }
+[data-theme="dark"] .hero-finance-brief:hover { background: rgba(255,255,255,0.14); }
 [data-theme="dark"] .nav-link { background: var(--card-bg); border-color: var(--border); color: var(--text-secondary); }
 [data-theme="dark"] .nav-link:hover { color: var(--primary); }
 [data-theme="dark"] .nav-badge { background: #1E1E28; color: var(--text-muted); }
@@ -201,22 +201,22 @@ body {
   font-size: 0.95rem;
 }
 .hero-finance-brief {
-  display: flex; align-items: stretch; gap: 10px;
-}
-.hero-wb-left { display: flex; align-items: center; gap: 8px; }
-.hero-fin-item {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+  display: flex; align-items: center; justify-content: center; gap: 32px;
   background: rgba(255,255,255,0.14); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   border: 1px solid rgba(255,255,255,0.2);
-  border-radius: var(--radius-md); padding: 13px 22px; min-width: 110px;
+  border-radius: var(--radius-md); padding: 13px 28px;
   transition: transform 0.2s, background 0.2s; cursor: default;
 }
-.hero-fin-item:hover { transform: translateY(-2px); background: rgba(255,255,255,0.22); }
+.hero-finance-brief:hover { transform: translateY(-2px); background: rgba(255,255,255,0.22); }
+.hero-fin-item {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  min-width: 110px;
+}
 .hero-fin-val { font-size: 1.55rem; font-weight: 800; line-height: 1; }
 .hero-fin-val.up { color: #FFD6D6; }
 .hero-fin-val.down { color: #A7F3D0; }
-.hero-fin-val small { font-weight: 500; opacity: 0.75; font-size: 0.72rem; margin-left: 3px; }
 .hero-fin-label { font-size: 0.76rem; opacity: 0.82; margin-top: 3px; color: #fff; }
+.hero-wb-left { display: flex; align-items: center; gap: 8px; }
 .hero-weather-brief .temp { font-size: 2.2rem; font-weight: 800; line-height: 1; }
 .hero-weather-brief .desc { text-align: left; line-height: 1.5; }
 .hero-weather-brief .desc span { display: block; font-size: 0.78rem; opacity: 0.7; }
@@ -681,8 +681,8 @@ body {
   .hero-weather-brief {
     padding: 10px 16px; min-width: 0; flex: 1 1 auto;
   }
-  .hero-finance-brief { gap: 6px; }
-  .hero-fin-item { padding: 10px 10px; min-width: 0; flex: 1 1 0; }
+  .hero-finance-brief { gap: 20px; padding: 10px 16px; }
+  .hero-fin-item { min-width: 0; }
   .hero-fin-val { font-size: 1.2rem; }
   .hero-fin-label { font-size: 0.65rem; margin-top: 2px; }
   .hero-weather-brief .temp { font-size: 1.7rem; }
@@ -876,12 +876,12 @@ body {
     </div>
     <div class="hero-finance-brief">
       <div class="hero-fin-item">
-        <div class="hero-fin-val up">4096.47 <small>+1.61%</small></div>
-        <div class="hero-fin-label">上证</div>
+        <div class="hero-fin-val up">4096.47</div>
+        <div class="hero-fin-label">上证 <small style="color:#FFD6D6;margin-left:2px;">+1.61%</small></div>
       </div>
       <div class="hero-fin-item">
-        <div class="hero-fin-val up">$4,219.32 <small>+0.20%</small></div>
-        <div class="hero-fin-label">黄金</div>
+        <div class="hero-fin-val up">$4,219.32</div>
+        <div class="hero-fin-label">黄金 <small style="color:#FFD6D6;margin-left:2px;">+0.20%</small></div>
       </div>
     </div>
     </div>
