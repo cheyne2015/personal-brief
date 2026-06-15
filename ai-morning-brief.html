@@ -659,6 +659,62 @@ body {
 .refresh-toast.success { background: #059669; }
 .refresh-toast.info { background: var(--clr-arena); }
 
+/* ===== Data Freshness Indicators ===== */
+.freshness-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.3px;
+  padding: 3px 10px; border-radius: 100px;
+  white-space: nowrap; vertical-align: middle; margin-left: 8px;
+  line-height: 1.4;
+}
+.freshness-badge.live {
+  background: rgba(16,185,129,0.12); color: #059669;
+  border: 1px solid rgba(16,185,129,0.25);
+}
+.freshness-badge.snapshot {
+  background: rgba(107,114,128,0.08); color: #6B7280;
+  border: 1px solid rgba(107,114,128,0.18);
+}
+.freshness-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+.freshness-badge.live .freshness-dot {
+  background: #10B981;
+  box-shadow: 0 0 6px rgba(16,185,129,0.5);
+  animation: freshness-pulse 2s ease-in-out infinite;
+}
+.freshness-badge.snapshot .freshness-dot { background: #9CA3AF; }
+
+@keyframes freshness-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+.hero-freshness-row {
+  display: flex; justify-content: center; margin-bottom: 14px;
+}
+.hero-freshness-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 0.68rem; font-weight: 600; color: rgba(255,255,255,0.9);
+  background: rgba(16,185,129,0.2); border: 1px solid rgba(16,185,129,0.3);
+  border-radius: 100px; padding: 2px 12px;
+}
+.hero-freshness-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #34D399;
+  box-shadow: 0 0 6px rgba(52,211,153,0.7);
+  animation: freshness-pulse 2s ease-in-out infinite;
+}
+
+[data-theme="dark"] .freshness-badge.live {
+  background: rgba(16,185,129,0.15); color: #34D399;
+  border-color: rgba(16,185,129,0.3);
+}
+[data-theme="dark"] .freshness-badge.snapshot {
+  background: rgba(156,163,175,0.1); color: #9CA3AF;
+  border-color: rgba(156,163,175,0.2);
+}
+[data-theme="dark"] .hero-freshness-tag {
+  background: rgba(16,185,129,0.2); border-color: rgba(16,185,129,0.35);
+}
+
 /* ===== Scroll Animation ===== */
 .animate-on-scroll { opacity: 0; transform: translateY(24px); transition: opacity 0.6s ease-out, transform 0.6s ease-out; }
 .animate-on-scroll.visible { opacity: 1; transform: translateY(0); }
@@ -694,6 +750,9 @@ body {
   .back-top-btn { bottom: 66px; right: 20px; width: 38px; height: 38px; font-size: 1rem; }
   .refresh-btn { bottom: 20px; right: 20px; width: 38px; height: 38px; font-size: 1rem; }
   .refresh-tooltip { bottom: 112px; right: 16px; }
+  .freshness-badge { font-size: 0.62rem; padding: 2px 7px; margin-left: 4px; gap: 3px; }
+  .freshness-dot { width: 5px; height: 5px; }
+  .hero-freshness-tag { font-size: 0.62rem; padding: 2px 8px; }
 }
 @media (max-width: 480px) {
   .hero h1 { font-size: 1.5rem; }
@@ -884,6 +943,12 @@ body {
     </div>
     </div>
 
+    <div class="hero-freshness-row">
+      <span class="hero-freshness-tag" id="heroFreshTag">
+        <span class="hero-freshness-dot"></span>实时数据
+      </span>
+    </div>
+
     <div class="hero-stats">
       <div class="hero-stat"><div class="count">6</div><div class="label">AI 日报</div></div>
       <div class="hero-stat"><div class="count">3 天</div><div class="label">天气预报</div></div>
@@ -911,6 +976,7 @@ body {
     <div class="major-icon" style="background:var(--clr-model-bg);">🧠</div>
     <h2 class="major-title">AI 日报</h2>
     <span class="major-count">覆盖 06.14 08:00 — 06.15 08:00 · 共 6 条</span>
+    <span class="freshness-badge snapshot"><span class="freshness-dot"></span>快照内容</span>
   </div>
 
   <!-- Sub: 行业动态 -->
@@ -1018,6 +1084,7 @@ body {
     <div class="major-icon" style="background:var(--clr-world-bg);">🌍</div>
     <h2 class="major-title">国际局势</h2>
     <span class="major-count">美伊冲突 · 中东动态</span>
+    <span class="freshness-badge snapshot"><span class="freshness-dot"></span>快照内容</span>
   </div>
 
   <!-- Breaking -->
@@ -1072,6 +1139,7 @@ body {
     <div class="major-icon" style="background:var(--clr-arena-bg);">🏆</div>
     <h2 class="major-title">LM Arena Top10 排行榜</h2>
     <span class="major-count">数据截至 2026.06.12 · arena.ai</span>
+    <span class="freshness-badge snapshot"><span class="freshness-dot"></span>快照内容</span>
   </div>
 
   <!-- Tab Nav -->
@@ -1234,6 +1302,7 @@ body {
     <div class="major-icon" style="background:var(--clr-weather-bg);">🌤️</div>
     <h2 class="major-title">天气看板</h2>
     <span class="major-count">成都双流 · 融创香璟台西苑</span>
+    <span class="freshness-badge snapshot"><span class="freshness-dot"></span>快照内容</span>
   </div>
 
   <div class="weather-alert animate-on-scroll" style="margin-bottom:20px;">
@@ -1280,6 +1349,7 @@ body {
     <div class="major-icon" style="background:var(--clr-finance-bg);">💹</div>
     <h2 class="major-title">金融市场</h2>
     <span class="major-count">6月12日收盘 · 6月15日早盘</span>
+    <span class="freshness-badge live" id="finFreshBadge"><span class="freshness-dot"></span>实时数据</span>
   </div>
 
   <div class="finance-grid">
@@ -1993,6 +2063,7 @@ body {
       });
 
       updateTime();
+      pulseLiveIndicators();
       btn.classList.remove('spinning');
       showToast(ok>=3?'✅ 数据已刷新':'⚠️ 部分数据获取失败 ('+ok+'/4)', ok>=3?'success':'error');
     }).catch(function(){
@@ -2000,6 +2071,23 @@ body {
       showToast('❌ 网络错误，请稍后重试','error');
     });
   });
+
+  /* Pulse live data indicators to show freshness */
+  function pulseLiveIndicators() {
+    var tags = document.querySelectorAll('.hero-freshness-tag, #finFreshBadge');
+    tags.forEach(function(tag) {
+      tag.style.transform = 'scale(1.08)';
+      tag.style.transition = 'transform 0.15s ease-out';
+      setTimeout(function() { tag.style.transform = 'scale(1)'; }, 300);
+    });
+    // Update hero freshness text with timestamp
+    var ft = document.getElementById('heroFreshTag');
+    if (ft) {
+      var now = new Date();
+      var ts = ('0'+now.getHours()).slice(-2)+':'+('0'+now.getMinutes()).slice(-2)+':'+('0'+now.getSeconds()).slice(-2);
+      ft.innerHTML = '<span class="hero-freshness-dot"></span>实时数据 · '+ts;
+    }
+  }
 
   /* ===== Keyboard shortcut: Esc to close diff ===== */
   document.addEventListener('keydown', function(e) {
