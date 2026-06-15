@@ -219,6 +219,7 @@ body {
   border: 1px solid rgba(255,255,255,0.2);
   border-radius: var(--radius-md); padding: 13px 18px; min-width: 90px;
   transition: transform 0.2s, background 0.2s; cursor: default;
+  flex: 1; max-width: 140px;
 }
 .hero-stat:hover { transform: translateY(-2px); background: rgba(255,255,255,0.22); }
 .hero-stat .count { font-size: 1.55rem; font-weight: 800; line-height: 1; }
@@ -611,6 +612,29 @@ body {
 .refresh-btn.spinning svg { animation: spin 0.8s ease-in-out; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ===== Back to Top Button ===== */
+.back-top-btn {
+  position: fixed; bottom: 92px; right: 28px; z-index: 998;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--card-bg); color: var(--text-secondary);
+  border: 1px solid var(--border); cursor: pointer;
+  box-shadow: var(--shadow-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.15rem; transition: transform 0.25s, box-shadow 0.25s, opacity 0.3s, background 0.35s;
+  outline: none; -webkit-tap-highlight-color: transparent;
+  opacity: 0; visibility: hidden; transform: translateY(12px) scale(0.85);
+}
+.back-top-btn.visible {
+  opacity: 1; visibility: visible; transform: translateY(0) scale(1);
+}
+.back-top-btn:hover {
+  color: var(--primary); border-color: var(--primary-light);
+  background: #FFF5F2; transform: translateY(-3px) scale(1);
+}
+[data-theme="dark"] .back-top-btn:hover {
+  background: rgba(232,69,60,0.10); border-color: var(--primary);
+}
+
 .refresh-tooltip {
   position: fixed; bottom: 92px; right: 28px; z-index: 999;
   background: var(--text); color: #fff; font-size: 0.8rem;
@@ -640,10 +664,10 @@ body {
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
   .hero { padding: 40px 16px 36px; }
-  .hero-stats { gap: 6px; }
-  .hero-stat { padding: 10px 14px; min-width: 70px; }
-  .hero-stat .count { font-size: 1.3rem; }
-  .hero-stat .label { font-size: 0.68rem; }
+  .hero-stats { gap: 5px; flex-wrap: nowrap; }
+  .hero-stat { padding: 8px 6px; min-width: 0; max-width: none; flex: 1 1 0; }
+  .hero-stat .count { font-size: 1.05rem; }
+  .hero-stat .label { font-size: 0.62rem; margin-top: 1px; }
   .cards-grid, .weather-grid, .arena-grid, .finance-grid, .world-grid { grid-template-columns: 1fr; }
   .major-section { padding: 40px 16px 0; }
   .nav-section { padding: 20px 12px 0; gap: 6px; }
@@ -663,6 +687,7 @@ body {
     padding: 8px 5px; font-size: 0.76rem; min-width: 56px;
     border-radius: 8px; line-height: 1.2;
   }
+  .back-top-btn { bottom: 80px; right: 18px; width: 40px; height: 40px; }
 }
 @media (max-width: 480px) {
   .hero h1 { font-size: 1.5rem; }
@@ -1361,6 +1386,13 @@ body {
 <div class="refresh-tooltip" id="refreshTooltip">点击刷新获取最新数据</div>
 <div class="refresh-toast" id="refreshToast"></div>
 
+<!-- ===== Back to Top Button ===== -->
+<button class="back-top-btn" id="backTopBtn" aria-label="返回顶部" title="回到顶部">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="18 15 12 9 6 15"/>
+  </svg>
+</button>
+
 <!-- ===== Scripts ===== -->
 <script>
 (function() {
@@ -1888,6 +1920,23 @@ body {
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeDiff();
   });
+
+  /* ===== Back to Top Button ===== */
+  (function() {
+    var btn = document.getElementById('backTopBtn');
+    var showThreshold = 360;
+    function toggleBtn() {
+      if (window.scrollY > showThreshold) {
+        btn.classList.add('visible');
+      } else {
+        btn.classList.remove('visible');
+      }
+    }
+    window.addEventListener('scroll', toggleBtn, { passive: true });
+    btn.addEventListener('click', function() {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  })();
 
 })();
 </script>
