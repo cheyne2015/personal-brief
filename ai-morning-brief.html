@@ -212,9 +212,7 @@ body {
   display: flex; flex-direction: column; align-items: center; text-align: center;
   min-width: 110px;
 }
-.hero-fin-val { font-size: 1.55rem; font-weight: 800; line-height: 1; }
-.hero-fin-val.up { color: #FFD6D6; }
-.hero-fin-val.down { color: #A7F3D0; }
+.hero-fin-val { font-size: 1.55rem; font-weight: 800; line-height: 1; color: #fff; }
 .hero-fin-label { font-size: 0.76rem; opacity: 0.82; margin-top: 3px; color: #fff; }
 .hero-wb-left { display: flex; align-items: center; gap: 8px; }
 .hero-weather-brief .temp { font-size: 2.2rem; font-weight: 800; line-height: 1; }
@@ -677,14 +675,14 @@ body {
   .nav-section { padding: 20px 12px 0; gap: 6px; }
   .nav-link { padding: 7px 13px; font-size: 0.78rem; }
   .card { padding: 16px 18px; }
-  .hero-brief-row { gap: 8px; }
+  .hero-brief-row { gap: 5px; flex-wrap: nowrap; }
   .hero-weather-brief {
-    padding: 10px 16px; min-width: 0; flex: 1 1 auto;
+    padding: 8px 10px; min-width: 0; flex: 1 1 auto;
   }
-  .hero-finance-brief { gap: 20px; padding: 10px 16px; }
+  .hero-finance-brief { gap: 10px; padding: 8px 10px; min-width: 0; }
   .hero-fin-item { min-width: 0; }
-  .hero-fin-val { font-size: 1.2rem; }
-  .hero-fin-label { font-size: 0.65rem; margin-top: 2px; }
+  .hero-fin-val { font-size: 1.05rem; }
+  .hero-fin-label { font-size: 0.6rem; margin-top: 1px; }
   .hero-weather-brief .temp { font-size: 1.7rem; }
   .theme-toggle { top: 10px; right: 10px; width: 36px; height: 36px; }
   .theme-toggle svg { width: 17px; height: 17px; }
@@ -877,11 +875,11 @@ body {
     <div class="hero-finance-brief">
       <div class="hero-fin-item">
         <div class="hero-fin-val up">4096.47</div>
-        <div class="hero-fin-label">上证 <small style="color:#FFD6D6;margin-left:2px;">+1.61%</small></div>
+        <div class="hero-fin-label">上证 <small style="opacity:0.75;margin-left:2px;">+1.61%</small></div>
       </div>
       <div class="hero-fin-item">
         <div class="hero-fin-val up">$4,219.32</div>
-        <div class="hero-fin-label">黄金 <small style="color:#FFD6D6;margin-left:2px;">+0.20%</small></div>
+        <div class="hero-fin-label">黄金 <small style="opacity:0.75;margin-left:2px;">+0.20%</small></div>
       </div>
     </div>
     </div>
