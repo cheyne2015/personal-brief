@@ -1,0 +1,2 @@
+# 敏感目录 — 包含服务器IP/密钥路径等工作日志
+.workbuddy/memory/
