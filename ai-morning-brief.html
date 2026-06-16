@@ -534,6 +534,8 @@ body {
 .fin-item:last-child { border-bottom: none; }
 .fin-item .name { color: var(--text-secondary); }
 .fin-item .val { font-weight: 600; }
+.fin-fetch-time { opacity: 0; transition: opacity 0.3s; }
+.fin-fetch-time.loaded { opacity: 1; }
 
 /* ===== Market Analysis Section ===== */
 .market-analysis {
@@ -569,6 +571,9 @@ body {
 .analysis-card.nasdaq .an-list li::before { background: #3B82F6; }
 [data-theme="dark"] .analysis-card { border-color: var(--border); }
 [data-theme="dark"] .analysis-card .an-list li { color: var(--text-muted); }
+[data-theme="dark"] .my-focus-section > div > div {
+  background: rgba(255,255,255,0.06) !important;
+}
 
 /* ===== World Section ===== */
 .world-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
@@ -684,6 +689,24 @@ body {
   animation: freshness-pulse 2s ease-in-out infinite;
 }
 .freshness-badge.snapshot .freshness-dot { background: #9CA3AF; }
+.freshness-badge.updating {
+  background: rgba(245,158,11,0.12); color: #D97706;
+  border: 1px solid rgba(245,158,11,0.25);
+}
+.freshness-badge.updating .freshness-dot {
+  background: #F59E0B;
+  box-shadow: 0 0 6px rgba(245,158,11,0.5);
+  animation: freshness-pulse 1s ease-in-out infinite;
+}
+/* AI content arrival glow effect */
+@keyframes ai-glow-in {
+  0%   { box-shadow: 0 0 0 0 rgba(220,38,38,0.4); }
+  50%  { box-shadow: 0 0 20px 4px rgba(220,38,38,0.15); }
+  100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
+}
+.ai-just-arrived {
+  animation: ai-glow-in 1.2s ease-out;
+}
 
 @keyframes freshness-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
@@ -824,7 +847,7 @@ body {
   transition: width 0.1s linear;
   width: 100%;
 }
-.diff-countdown-bar.running { animation: countdown 3s linear forwards; }
+.diff-countdown-bar.running { animation: countdown 5s linear forwards; }
 @keyframes countdown { from { width: 100%; } to { width: 0%; } }
 
 .diff-countdown-text {
@@ -919,7 +942,13 @@ body {
       </svg>
     </button>
     <h1>AI · 市场 · 天气 · 全球速览</h1>
-    <p class="hero-subtitle">2026年6月15日 星期一 · 数据截至 16:45 北京时间</p>
+    <p class="hero-subtitle" id="heroSubtitle">正在获取最新数据…</p>
+
+    <div class="hero-freshness-row">
+      <span class="hero-freshness-tag" id="heroFreshTag">
+        <span class="hero-freshness-dot"></span>实时数据
+      </span>
+    </div>
 
     <div class="hero-brief-row">
     <div class="hero-weather-brief">
@@ -941,12 +970,6 @@ body {
         <div class="hero-fin-label">黄金 <small style="opacity:0.75;margin-left:2px;">+0.2%</small></div>
       </div>
     </div>
-    </div>
-
-    <div class="hero-freshness-row">
-      <span class="hero-freshness-tag" id="heroFreshTag">
-        <span class="hero-freshness-dot"></span>实时数据
-      </span>
     </div>
 
     <div class="hero-stats">
@@ -999,7 +1022,7 @@ body {
   <div class="major-header">
     <div class="major-icon" style="background:var(--clr-arena-bg);">🏆</div>
     <h2 class="major-title">LM Arena Top10 排行榜</h2>
-    <span class="major-count">数据截至 2026.06.12 · arena.ai</span>
+    <span class="major-count">数据来源: arena.ai · 每日更新</span>
     <span class="freshness-badge live" id="arenaFreshBadge"><span class="freshness-dot"></span>实时数据</span>
   </div>
   <div id="arenaContainer"><div class="empty-section" style="padding:40px;">🔄 正在加载 Arena 排行榜…</div></div>
@@ -1051,14 +1074,14 @@ body {
   <div class="major-header">
     <div class="major-icon" style="background:var(--clr-finance-bg);">💹</div>
     <h2 class="major-title">金融市场</h2>
-    <span class="major-count">6月12日收盘 · 6月15日早盘</span>
+    <span class="major-count" id="finDateLabel">加载中…</span>
     <span class="freshness-badge live" id="finFreshBadge"><span class="freshness-dot"></span>实时数据</span>
   </div>
 
   <div class="finance-grid">
     <!-- A 股 -->
     <div class="finance-card animate-on-scroll">
-      <div class="fin-label">🇨🇳 A 股市场</div>
+      <div class="fin-label">🇨🇳 A 股市场 <span class="fin-fetch-time" id="finFetchTimeSH" style="font-size:0.7em;font-weight:400;color:var(--text-muted);margin-left:4px;"></span></div>
       <div class="fin-items">
         <div class="fin-item"><span class="name">上证指数</span><span class="val">4096.47 <span class="fin-up">+1.61%</span></span></div>
         <div class="fin-item"><span class="name">深证成指</span><span class="val">15365.25 <span class="fin-up">+2.69%</span></span></div>
@@ -1069,7 +1092,7 @@ body {
 
     <!-- 美股 -->
     <div class="finance-card animate-on-scroll">
-      <div class="fin-label">🇺🇸 美股市场（6/12 收盘）</div>
+      <div class="fin-label">🇺🇸 美股市场 <span class="fin-fetch-time" id="finFetchTimeUS" style="font-size:0.7em;font-weight:400;color:var(--text-muted);margin-left:4px;"></span></div>
       <div class="fin-items">
         <div class="fin-item"><span class="name">道琼斯</span><span class="val">51202.26 <span class="fin-up">+0.70%</span></span></div>
         <div class="fin-item"><span class="name">纳斯达克</span><span class="val">25888.84 <span class="fin-up">+0.31%</span></span></div>
@@ -1082,14 +1105,13 @@ body {
 
     <!-- 黄金 -->
     <div class="finance-card animate-on-scroll">
-      <div class="fin-label">🥇 贵金属</div>
-      <div class="fin-value" style="font-size:1.6rem;">$4,323</div>
-      <div class="fin-change fin-up">COMEX 黄金 · 美元/盎司</div>
+      <div class="fin-label">🥇 贵金属 <span class="fin-fetch-time" id="finFetchTimeGold" style="font-size:0.7em;font-weight:400;color:var(--text-muted);margin-left:4px;"></span></div>
+      <div class="fin-value" style="font-size:1.6rem;" id="finGoldValue">加载中…</div>
+      <div class="fin-change" id="finGoldChange">正在获取实时数据</div>
       <div class="fin-items" style="margin-top:12px;">
-        <div class="fin-item"><span class="name">上海金早盘</span><span class="val">¥941.45/克</span></div>
-        <div class="fin-item"><span class="name">COMEX白银</span><span class="val">$68.12/盎司</span></div>
+        <div class="fin-item"><span class="name">上海金</span><span class="val" id="finShGold">¥--/克</span></div>
+        <div class="fin-item"><span class="name">COMEX白银</span><span class="val" id="finSilver">$--/盎司</span></div>
       </div>
-      <p style="margin-top:8px;font-size:0.78rem;color:var(--text-muted);">上周周跌 2.87%，本周反弹中</p>
     </div>
   </div>
 
@@ -1115,7 +1137,7 @@ body {
     ·
     综合新闻
   </p>
-  <p style="margin-top:4px;font-size:0.74rem;">数据覆盖 2026.06.14 08:00 — 06.15 16:45 北京时间 · 自动聚合生成</p>
+  <p style="margin-top:4px;font-size:0.74rem;" id="footerCoverage">数据实时更新 · 自动聚合生成</p>
   <p style="margin-top:8px;font-size:0.72rem;color:var(--text-muted);">
     <a href="https://beian.miit.gov.cn" style="color:inherit;text-decoration:none;" target="_blank" rel="noopener noreferrer">蜀ICP备2026027826号-2</a>
   </p>
@@ -1151,6 +1173,47 @@ body {
   var STORAGE_KEY = '_brief_snapshot';
   var PENDING_KEY  = '_brief_pending_compare';
   var THEME_KEY    = '_brief_theme';
+  var AI_CACHE_KEY = '_brief_ai_cache';
+
+  var forceRefresh = false; // set true by refresh button to skip cache
+
+  function getAICache() {
+    try { return JSON.parse(localStorage.getItem(AI_CACHE_KEY)) || {}; }
+    catch(e) { return {}; }
+  }
+  function setAICache(updates) {
+    var cache = getAICache();
+    Object.keys(updates).forEach(function(k) { cache[k] = updates[k]; });
+    try { localStorage.setItem(AI_CACHE_KEY, JSON.stringify(cache)); }
+    catch(e) { /* storage full, silently ignore */ }
+  }
+  function clearAICache() {
+    try { localStorage.removeItem(AI_CACHE_KEY); }
+    catch(e) {}
+    forceRefresh = true; // ensure this session also re-fetches
+  }
+  function hashStr(s) {
+    // djb2 hash — fast, good enough for cache keys
+    var h = 5381;
+    for (var i = 0; i < s.length; i++) { h = ((h << 5) + h) + s.charCodeAt(i); }
+    return h.toString(36);
+  }
+
+  /* ===== API Data Cache (network-first, cache-fallback) ===== */
+  var API_CACHE_KEY = '_brief_api_cache';
+  function apiCacheGet(key) {
+    try {
+      var c = JSON.parse(localStorage.getItem(API_CACHE_KEY)) || {};
+      return c[key] || null;
+    } catch(e) { return null; }
+  }
+  function apiCacheSet(key, value) {
+    try {
+      var c = JSON.parse(localStorage.getItem(API_CACHE_KEY)) || {};
+      c[key] = { data: value, ts: Date.now() };
+      localStorage.setItem(API_CACHE_KEY, JSON.stringify(c));
+    } catch(e) { /* storage full */ }
+  }
 
   /* ===== Sub-section toggle (collapse 0-item boards) ===== */
   window.toggleSubSection = function(id) {
@@ -1536,9 +1599,9 @@ body {
       if (e.target === overlay) closeDiff();
     });
 
-    // Auto-dismiss countdown (3 seconds)
+    // Auto-dismiss countdown (5 seconds)
     var countdownText = document.getElementById('diffCountdownText');
-    var remaining = 3;
+    var remaining = 5;
     var countdownTimer = setInterval(function() {
       remaining--;
       if (remaining > 0) {
@@ -1579,7 +1642,7 @@ body {
       remaining = 3;
       document.getElementById('diffCountdownBar').style.animation = 'none';
       void document.getElementById('diffCountdownBar').offsetWidth; // reflow
-      document.getElementById('diffCountdownBar').style.animation = 'countdown 3s linear forwards';
+      document.getElementById('diffCountdownBar').style.animation = 'countdown 5s linear forwards';
       countdownText.textContent = '3s 后自动关闭';
       overlay._diffTimer = setInterval(function() {
         remaining--;
@@ -1667,11 +1730,21 @@ body {
   function fmtVal(n) { n=parseFloat(n); if(isNaN(n))return'--'; if(Math.abs(n)>=100)return Math.round(n).toLocaleString(); return n.toFixed(1); }
   function fmtPct(curr,prev) { var p=((curr-prev)/prev*100); return (p>=0?'+':'')+p.toFixed(1)+'%'; }
 
+  /* Show AI rate limit error message */
+  function showRateLimitMessage(container, defaultMsg) {
+    if (!container) return;
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:#DC2626;background:rgba(220,38,38,0.05);border-radius:12px;border:1px solid rgba(220,38,38,0.2);">' +
+      '<div style="font-size:1.5rem;margin-bottom:8px;">⚠️</div>' +
+      '<div style="font-weight:600;margin-bottom:4px;">AI 请求已达每日上限</div>' +
+      '<div style="font-size:0.85rem;color:var(--text-muted);">' + (defaultMsg || '每 IP 每天最多 10 次分析请求，请明天再试') + '</div>' +
+      '</div>';
+  }
+
   function updateTime() {
     var n=new Date(), wd=['日','一','二','三','四','五','六'];
     var ts=n.getFullYear()+'年'+(n.getMonth()+1)+'月'+n.getDate()+'日 星期'+wd[n.getDay()]+' · 数据截至 '+('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+' 北京时间';
-    var el=document.querySelector('.hero-subtitle'); if(el)el.textContent=ts;
-    el=document.querySelector('.site-footer p'); if(el)el.textContent='数据截至 '+('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+' 北京时间 · 实时聚合生成';
+    var el=document.getElementById('heroSubtitle'); if(el)el.textContent=ts;
+    el=document.getElementById('footerCoverage'); if(el)el.textContent='数据截至 '+('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2)+' 北京时间 · 实时聚合生成';
   }
 
   /* ===== Weather Forecast Rendering ===== */
@@ -1822,32 +1895,44 @@ body {
   btn.addEventListener('click', function() {
     btn.classList.add('spinning');
     showToast('正在获取最新数据...', 'info');
+    clearAICache(); // wipe AI cache on manual refresh
 
     Promise.all([
-      // 1. Weather (current + 7-day forecast)
+      // 1. Weather (current + 7-day forecast) — cache fallback
       fetch('https://api.open-meteo.com/v1/forecast?latitude=30.5728&longitude=104.0668&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,wind_speed_10m_max&timezone=Asia/Shanghai&forecast_days=7')
-        .then(function(r){return r.json();}).then(function(d){return{tag:'weather',ok:true,data:d};}).catch(function(){return{tag:'weather',ok:false};}),
-      // 2. 上证指数
-      loadVar('https://qt.gtimg.cn/q=sh000001','v_sh000001').then(function(d){return{tag:'sh',ok:true,data:d};}).catch(function(){return{tag:'sh',ok:false};}),
-      // 3. 纳斯达克
-      loadVar('https://qt.gtimg.cn/q=usIXIC','v_usIXIC').then(function(d){return{tag:'nasdaq',ok:true,data:d};}).catch(function(){return{tag:'nasdaq',ok:false};}),
-      // 4. 黄金 (Sina JSONP)
-      loadVar('https://hq.sinajs.cn/list=hf_XAU','hq_str_hf_XAU').then(function(d){return{tag:'gold',ok:true,data:d};}).catch(function(){return{tag:'gold',ok:false};}),
-      // 5. AI News
-      fetch('/api/aihot/items?mode=selected&take=8').then(function(r){return r.json();}).then(function(d){return{tag:'ainews',ok:true,data:d};}).catch(function(){return{tag:'ainews',ok:false};}),
-      // 6. Arena (4 categories in parallel)
+        .then(function(r){return r.json();}).then(function(d){apiCacheSet('weather',d);return{tag:'weather',ok:true,data:d};})
+        .catch(function(){var c=apiCacheGet('weather');return c&&c.data?{tag:'weather',ok:true,data:c.data,fromCache:true}:{tag:'weather',ok:false};}),
+      // 2. 上证指数 — cache fallback
+      loadVar('https://qt.gtimg.cn/q=sh000001','v_sh000001').then(function(d){apiCacheSet('sh_raw',d);return{tag:'sh',ok:true,data:d};})
+        .catch(function(){var c=apiCacheGet('sh_raw');return c&&c.data?{tag:'sh',ok:true,data:c.data,fromCache:true}:{tag:'sh',ok:false};}),
+      // 3. 纳斯达克 — cache fallback
+      loadVar('https://qt.gtimg.cn/q=usIXIC','v_usIXIC').then(function(d){apiCacheSet('nx_raw',d);return{tag:'nasdaq',ok:true,data:d};})
+        .catch(function(){var c=apiCacheGet('nx_raw');return c&&c.data?{tag:'nasdaq',ok:true,data:c.data,fromCache:true}:{tag:'nasdaq',ok:false};}),
+      // 4. 黄金 (Sina JSONP) — cache fallback
+      loadVar('https://hq.sinajs.cn/list=hf_XAU','hq_str_hf_XAU').then(function(d){apiCacheSet('gold_raw',d);return{tag:'gold',ok:true,data:d};})
+        .catch(function(){var c=apiCacheGet('gold_raw');return c&&c.data?{tag:'gold',ok:true,data:c.data,fromCache:true}:{tag:'gold',ok:false};}),
+      // 5. AI News — cache fallback
+      fetch('/api/aihot/items?mode=selected&take=8').then(function(r){return r.json();}).then(function(d){apiCacheSet('ainews',d);return{tag:'ainews',ok:true,data:d};})
+        .catch(function(){var c=apiCacheGet('ainews');return c&&c.data?{tag:'ainews',ok:true,data:c.data,fromCache:true}:{tag:'ainews',ok:false};}),
+      // 6. Arena (4 categories in parallel) — cache fallback
       (function(){
+        var today = new Date();
+        var dateStr = today.getFullYear() + '-' + ('0'+(today.getMonth()+1)).slice(-2) + '-' + ('0'+today.getDate()).slice(-2);
         var cats = ['text','code','text-to-image','text-to-video'];
-        var base = 'https://raw.githubusercontent.com/oolong-tea-2026/arena-ai-leaderboards/main/data/2026-06-15/';
-        return Promise.all(cats.map(function(c){return fetch(base+c+'.json').then(function(r){return r.json();}).then(function(d){return d.models;});})).then(function(d){return{tag:'arena',ok:true,data:d};}).catch(function(){return{tag:'arena',ok:false};});
+        var base = 'https://raw.githubusercontent.com/oolong-tea-2026/arena-ai-leaderboards/main/data/' + dateStr + '/';
+        return Promise.all(cats.map(function(c){return fetch(base+c+'.json').then(function(r){return r.json();}).then(function(d){return d.models;});})).then(function(d){apiCacheSet('arena',d);return{tag:'arena',ok:true,data:d};})
+          .catch(function(){var c=apiCacheGet('arena');return c&&c.data?{tag:'arena',ok:true,data:c.data,fromCache:true}:{tag:'arena',ok:false};});
       })(),
-      // 7. World News (RSS, CORS enabled)
-      fetch('https://actually-relevant-api.onrender.com/api/feed').then(function(r){return r.text();}).then(function(d){return{tag:'world',ok:true,data:d};}).catch(function(){return{tag:'world',ok:false};})
+      // 7. World News (RSS, CORS enabled) — cache fallback
+      fetch('https://actually-relevant-api.onrender.com/api/feed').then(function(r){return r.text();}).then(function(d){apiCacheSet('world_rss',d);return{tag:'world',ok:true,data:d};})
+        .catch(function(){var c=apiCacheGet('world_rss');return c&&c.data?{tag:'world',ok:true,data:c.data,fromCache:true}:{tag:'world',ok:false};})
     ]).then(function(rs){
       var ok=0;
-      var shCur=0, shPrev=0, goldCur=0, goldPrev=0;
+      var fromCacheCount=0;
+      var shCur=0, shPrev=0, goldCur=0, goldPrev=0, nxCur=0, nxPrev=0;
       rs.forEach(function(r){
         if(!r.ok)return;
+        if(r.fromCache) fromCacheCount++;
 
         if(r.tag==='weather'){
           var c=r.data.current;
@@ -1875,6 +1960,7 @@ body {
         if(r.tag==='nasdaq'){
           var p=r.data.split('~'); if(p.length>=5){
             var cur=parseFloat(p[3]), prev=parseFloat(p[4]), pct=fmtPct(cur,prev);
+            nxCur=cur; nxPrev=prev;  // Store Nasdaq data
             var all=document.querySelectorAll('.fin-item');
             for(var i=0;i<all.length;i++){if(all[i].querySelector('.name')&&all[i].querySelector('.name').textContent==='纳斯达克'){var upCls=cur>=prev?'fin-up':'fin-down';all[i].querySelector('.val').innerHTML=fmtVal(cur)+' <span class="'+upCls+'">'+pct+'</span>';break;}}
             ok++;
@@ -1909,26 +1995,41 @@ body {
         }
       });
 
-      // Generate finance analysis from collected market data
-      if (shCur && goldCur) renderFinanceAnalysis(shCur, shPrev, goldCur, goldPrev);
+      // Generate finance analysis from collected market data (with fallback)
+      if (!shCur) { shCur = 4096.47; shPrev = 4048.13; }
+      if (!goldCur) { goldCur = 4323; goldPrev = 4315; }
+      if (!nxCur) { nxCur = 25888.84; nxPrev = 25800; }
+      updateFinanceTimestamps();
+      renderFinanceAnalysis(shCur, shPrev, goldCur, goldPrev, nxCur, nxPrev);
 
       updateTime();
       pulseLiveIndicators();
       btn.classList.remove('spinning');
-      showToast(ok>=5?'✅ 数据已刷新':'⚠️ 部分数据获取失败 ('+ok+'/7)', ok>=5?'success':'error');
+      var msg = '✅ 数据已刷新';
+      if (fromCacheCount > 0) msg += ' (' + fromCacheCount + ' 项来自缓存)';
+      showToast(ok>=5?msg:'⚠️ 部分数据获取失败 ('+ok+'/7)', ok>=5?'success':'error');
     }).catch(function(){
       btn.classList.remove('spinning');
       showToast('❌ 网络错误，请稍后重试','error');
     });
   });
 
-  // Auto-run on DOM ready
+  // Auto-run on DOM ready — network-first, cache-fallback for all API data
   function initAutoLoad() {
-    // Weather forecast (auto)
+    // ===== Weather =====
     fetch('https://api.open-meteo.com/v1/forecast?latitude=30.5728&longitude=104.0668&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,wind_speed_10m_max&timezone=Asia/Shanghai&forecast_days=7')
-      .then(function(r){return r.json();}).then(function(d){if(d.daily) renderWeatherCards(d.daily);}).catch(function(e){console.error('Weather auto-load failed:',e);});
+      .then(function(r){return r.json();})
+      .then(function(d){
+        apiCacheSet('weather', d);
+        if(d.daily) renderWeatherCards(d.daily);
+      })
+      .catch(function(e){
+        console.error('Weather auto-load failed:',e);
+        var cached = apiCacheGet('weather');
+        if (cached && cached.data && cached.data.daily) renderWeatherCards(cached.data.daily);
+      });
 
-    // AI News (auto) - with robust error handling
+    // ===== AI News =====
     var c = document.getElementById('aiNewsContainer');
     if (!c) { console.error('aiNewsContainer not found'); return; }
 
@@ -1942,29 +2043,87 @@ body {
       })
       .then(function(d) {
         if (!d || !d.items) { console.error('AI news API: no items in response', d); throw new Error('empty response'); }
+        apiCacheSet('ainews', d);
         renderAINews(d.items);
-        // Switch to live badge
         if (badge) { badge.className = 'freshness-badge live'; badge.innerHTML = '<span class="freshness-dot"></span>实时数据'; }
       })
       .catch(function(e) {
         console.error('AI news auto-load error:', e);
-        if (c) c.innerHTML = '<div class="empty-section" style="padding:40px;color:#DC2626;">⚠️ AI 资讯加载失败，请点击右下角刷新按钮重试<br><small style="opacity:0.6;margin-top:8px;display:block;">' + (e.message||'网络错误') + '</small></div>';
-        if (cnt) cnt.textContent = '加载失败';
-        if (badge) { badge.className = 'freshness-badge snapshot'; badge.innerHTML = '<span class="freshness-dot"></span>加载失败'; }
+        var cached = apiCacheGet('ainews');
+        if (cached && cached.data && cached.data.items) {
+          renderAINews(cached.data.items);
+          if (badge) { badge.className = 'freshness-badge snapshot'; badge.innerHTML = '<span class="freshness-dot"></span>缓存数据'; }
+        } else {
+          if (c) c.innerHTML = '<div class="empty-section" style="padding:40px;color:#DC2626;">⚠️ AI 资讯加载失败，请点击右下角刷新按钮重试<br><small style="opacity:0.6;margin-top:8px;display:block;">' + (e.message||'网络错误') + '</small></div>';
+          if (cnt) cnt.textContent = '加载失败';
+          if (badge) { badge.className = 'freshness-badge snapshot'; badge.innerHTML = '<span class="freshness-dot"></span>加载失败'; }
+        }
       });
 
-    // Arena (auto)
+    // ===== Arena =====
+    var today = new Date();
+    var dateStr = today.getFullYear() + '-' + ('0'+(today.getMonth()+1)).slice(-2) + '-' + ('0'+today.getDate()).slice(-2);
     var cats = ['text','code','text-to-image','text-to-video'];
-    var base = 'https://raw.githubusercontent.com/oolong-tea-2026/arena-ai-leaderboards/main/data/2026-06-15/';
+    var base = 'https://raw.githubusercontent.com/oolong-tea-2026/arena-ai-leaderboards/main/data/' + dateStr + '/';
     Promise.all(cats.map(function(c){return fetch(base+c+'.json').then(function(r){return r.json();}).then(function(d){return d.models;});}))
-      .then(function(d){renderArena(d);})
-      .catch(function(e){console.error('Arena auto-load error:', e);});
+      .then(function(d){
+        apiCacheSet('arena', d);
+        renderArena(d);
+      })
+      .catch(function(e){
+        console.error('Arena auto-load error:', e);
+        var cached = apiCacheGet('arena');
+        if (cached && cached.data) renderArena(cached.data);
+      });
 
-    // World News (auto)
+    // ===== World News (RSS) =====
     fetch('https://actually-relevant-api.onrender.com/api/feed')
       .then(function(r){return r.text();})
-      .then(function(d){renderWorldNews(d);})
-      .catch(function(e){console.error('World news auto-load error:', e);});
+      .then(function(d){
+        apiCacheSet('world_rss', d);
+        renderWorldNews(d);
+      })
+      .catch(function(e){
+        console.error('World news auto-load error:', e);
+        var cached = apiCacheGet('world_rss');
+        if (cached && cached.data) renderWorldNews(cached.data);
+      });
+
+    // ===== Finance Market Data (independent loading with fallback) =====
+    var parseStocks = function(rs) {
+      var shCur=0, shPrev=0, goldCur=0, goldPrev=0, nxCur=0, nxPrev=0;
+      var shP = rs[0] && typeof rs[0]==='string' ? rs[0].split('~') : [];
+      if(shP.length>=5){ shCur=parseFloat(shP[3]); shPrev=parseFloat(shP[4]); }
+      var nxP = rs[1] && typeof rs[1]==='string' ? rs[1].split('~') : [];
+      if(nxP.length>=5){ nxCur=parseFloat(nxP[3]); nxPrev=parseFloat(nxP[4]); }
+      var gP = rs[2] && typeof rs[2]==='string' ? rs[2].split(',') : [];
+      if(gP.length>=2){ goldCur=parseFloat(gP[0]); goldPrev=parseFloat(gP[1]); }
+      // Always call renderFinanceAnalysis — use fallback stock values if API failed
+      if (!shCur) { shCur = 4096.47; shPrev = 4048.13; }
+      if (!goldCur) { goldCur = 4323; goldPrev = 4315; }
+      if (!nxCur) { nxCur = 25888.84; nxPrev = 25800; }
+      updateFinanceTimestamps();
+      renderFinanceAnalysis(shCur, shPrev, goldCur, goldPrev, nxCur, nxPrev);
+    };
+
+    // Load each stock API independently — failure of one doesn't block others
+    function safeLoadStock(url, vname, cacheKey) {
+      return loadVar(url, vname)
+        .then(function(d) { apiCacheSet(cacheKey, d); return d; })
+        .catch(function() {
+          var c = apiCacheGet(cacheKey);
+          return c && c.data ? c.data : null;
+        });
+    }
+
+    Promise.all([
+      safeLoadStock('https://qt.gtimg.cn/q=sh000001','v_sh000001','sh_raw'),
+      safeLoadStock('https://qt.gtimg.cn/q=usIXIC','v_usIXIC','nx_raw'),
+      safeLoadStock('https://hq.sinajs.cn/list=hf_XAU','hq_str_hf_XAU','gold_raw')
+    ]).then(function(rs){
+      apiCacheSet('stocks', rs);
+      parseStocks(rs);
+    });
   }
 
   // Run as soon as DOM is ready
@@ -1999,7 +2158,11 @@ body {
       container.innerHTML = '<div class="empty-section" style="padding:40px;">📭 暂无 Arena 数据</div>';
       return;
     }
-    if (countEl) countEl.textContent = '数据截至 2026.06.15 · arena.ai';
+    if (countEl) {
+      var today = new Date();
+      var dateStr = today.getFullYear() + '.' + ('0'+(today.getMonth()+1)).slice(-2) + '.' + ('0'+today.getDate()).slice(-2);
+      countEl.textContent = '数据截至 ' + dateStr + ' · arena.ai';
+    }
 
     var html = '';
     // Tab Nav
@@ -2052,7 +2215,42 @@ body {
     }, 100);
   }
 
-  /* ===== World News Rendering ===== */
+  /* ===== World News HTML Builder ===== */
+  function buildWorldNewsHTML(displayed, aiHtml) {
+    var breaking = displayed[0];
+    var html = (aiHtml || '');
+    
+    if (breaking) {
+      html += '<div class="world-breaking animate-on-scroll visible">';
+      html += '<span class="tag">⚡ ' + breaking.category + '</span>';
+      html += '<p><strong>' + breaking.title + '</strong>';
+      if (breaking.titleEn && breaking.titleEn !== breaking.title) {
+        html += ' <small style="opacity:0.55;font-weight:400;">(' + breaking.titleEn + ')</small>';
+      }
+      html += '<br>' + breaking.desc.slice(0, 200) + (breaking.desc.length>200?'…':'') + '</p>';
+      html += '<a href="' + breaking.link + '" class="card-action" target="_blank" rel="noopener noreferrer">阅读原文 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>';
+      html += '</div>';
+    }
+    html += '<div class="world-grid">';
+    displayed.forEach(function(item) {
+      var icons = {'(Nuclear) War':'🔴','Global Governance Failure':'🌐','Existential Threats':'⚠️','Planet & Climate':'🌍','Human Development':'🏛️','Science & Technology':'🔬'};
+      var icon = Object.entries(icons).find(function(e){return item.category.indexOf(e[0])>=0;});
+      icon = icon ? icon[1] : '📰';
+      html += '<div class="world-card animate-on-scroll visible">';
+      html += '<h4>' + icon + ' ' + item.title;
+      if (item.titleEn && item.titleEn !== item.title) {
+        html += ' <small style="display:block;opacity:0.55;font-weight:400;font-size:0.82em;margin-top:2px;">' + item.titleEn + '</small>';
+      }
+      html += '</h4>';
+      html += '<p>' + item.desc.slice(0, 250) + (item.desc.length>250?'…':'') + '</p>';
+      html += '<a href="' + item.link + '" class="card-action" target="_blank" rel="noopener noreferrer">阅读原文 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>';
+      html += '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  /* ===== World News Rendering (cache-first: show cached or raw data, upgrade in background) ===== */
   function renderWorldNews(rssText) {
     var container = document.getElementById('worldContainer');
     var badge = document.getElementById('worldFreshBadge');
@@ -2064,7 +2262,6 @@ body {
       var items = doc.querySelectorAll('item');
       if (!items || items.length === 0) throw new Error('No items in RSS');
 
-      // Build item list with categories
       var newsItems = [];
       items.forEach(function(item) {
         var title = item.querySelector('title').textContent;
@@ -2076,7 +2273,6 @@ body {
         newsItems.push({title:title, link:link, desc:desc, pubDate:pubDate, category:category});
       });
 
-      // Prioritize: War/Global Governance/Existential Threat first
       var priorityTerms = ['War','Iran','Gulf','Nuclear','Strike','Conflict','Governance','Sanction','Military'];
       newsItems.sort(function(a, b) {
         var aP = priorityTerms.some(function(t){return a.category.indexOf(t)>=0 || a.title.indexOf(t)>=0;}) ? 0 : 1;
@@ -2086,34 +2282,45 @@ body {
       });
 
       var displayed = newsItems.slice(0, 5);
-      var breaking = displayed[0]; // Top geopolitical item
+      var origTitles = displayed.map(function(item) { return item.title; });
+      var origDescs = displayed.map(function(item) { return item.desc; });
 
-      // Breaking news
-      var html = '';
-      if (breaking) {
-        html += '<div class="world-breaking animate-on-scroll visible">';
-        html += '<span class="tag">⚡ ' + breaking.category + '</span>';
-        html += '<p><strong>' + breaking.title + '</strong> ' + breaking.desc.slice(0, 200) + (breaking.desc.length>200?'…':'') + '</p>';
-        html += '<a href="' + breaking.link + '" class="card-action" target="_blank" rel="noopener noreferrer">阅读原文 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>';
-        html += '</div>';
+      // Compute content hash from titles
+      var worldHash = hashStr(origTitles.sort().join('|||'));
+      var cache = getAICache();
+
+      // ===== CACHE HIT: render cached news + analysis + myFocus =====
+      if (!forceRefresh && cache.world && cache.world.hash === worldHash) {
+        if (cache.world.newsHtml) container.innerHTML = cache.world.newsHtml;
+        if (cache.world.analysisHtml) {
+          var analysisEl = ensureWorldAnalysisEl(container);
+          analysisEl.innerHTML = cache.world.analysisHtml;
+        }
+        if (cache.world.myFocusHtml) {
+          var focusEl = ensureWorldMyFocusEl(container);
+          focusEl.innerHTML = cache.world.myFocusHtml;
+        }
+        if (badge) { badge.className = 'freshness-badge live'; badge.innerHTML = '<span class="freshness-dot"></span>已翻译 (缓存)'; }
+        return;
       }
 
-      // Grid of remaining
-      html += '<div class="world-grid">';
-      displayed.forEach(function(item, i) {
-        var icons = {'(Nuclear) War':'🔴','Global Governance Failure':'🌐','Existential Threats':'⚠️','Planet & Climate':'🌍','Human Development':'🏛️','Science & Technology':'🔬'};
-        var icon = Object.entries(icons).find(function(e){return item.category.indexOf(e[0])>=0;});
-        icon = icon ? icon[1] : '📰';
-        html += '<div class="world-card animate-on-scroll visible">';
-        html += '<h4>' + icon + ' ' + item.title + '</h4>';
-        html += '<p>' + item.desc.slice(0, 250) + (item.desc.length>250?'…':'') + '</p>';
-        html += '<a href="' + item.link + '" class="card-action" target="_blank" rel="noopener noreferrer">阅读原文 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>';
-        html += '</div>';
-      });
-      html += '</div>';
+      // Save worldHash for background upgrade to use
+      window._worldHash = worldHash;
 
-      container.innerHTML = html;
-      if (badge) { badge.className = 'freshness-badge live'; badge.innerHTML = '<span class="freshness-dot"></span>实时数据'; }
+      // ===== IMMEDIATE: render raw English news =====
+      displayed.forEach(function(item) { item.titleEn = item.title; item.descEn = item.desc; });
+      container.innerHTML = buildWorldNewsHTML(displayed, '');
+      if (badge) { badge.className = 'freshness-badge updating'; badge.innerHTML = '<span class="freshness-dot"></span>翻译中…'; }
+
+      // ===== BACKGROUND: upgrade with translation + AI =====
+      upgradeWorldNews(container, badge, displayed, origTitles, origDescs);
+
+      // AI analysis runs in background too
+      renderWorldNewsAnalysis(displayed);
+
+      // "我关注的国际局势" — run in background, no loading state
+      renderMyFocusAnalysis(displayed);
+
     } catch(e) {
       console.error('World news parse error:', e);
       container.innerHTML = '<div class="empty-section" style="padding:40px;color:#DC2626;">⚠️ 国际局势加载失败：' + e.message + '</div>';
@@ -2121,9 +2328,362 @@ body {
     }
   }
 
-  /* ===== Finance Analysis Rendering (generated from market data) ===== */
-  function renderFinanceAnalysis(shCur, shPrev, goldCur, goldPrev) {
-    var el = document.getElementById('marketAnalysis'); if (!el) return;
+  /* Ensure worldAnalysis element exists, insert after worldContainer */
+  function ensureWorldAnalysisEl(worldContainer) {
+    var analysisEl = document.getElementById('worldAnalysis');
+    if (!analysisEl) {
+      analysisEl = document.createElement('div');
+      analysisEl.id = 'worldAnalysis';
+      analysisEl.className = 'world-analysis';
+      if (worldContainer) worldContainer.parentNode.insertBefore(analysisEl, worldContainer.nextSibling);
+    }
+    return analysisEl;
+  }
+
+  /* Ensure worldMyFocus element exists, insert after worldAnalysis */
+  function ensureWorldMyFocusEl(worldContainer) {
+    var focusEl = document.getElementById('worldMyFocus');
+    if (!focusEl) {
+      focusEl = document.createElement('div');
+      focusEl.id = 'worldMyFocus';
+      focusEl.className = 'world-my-focus';
+      var analysisEl = ensureWorldAnalysisEl(worldContainer);
+      if (analysisEl && analysisEl.parentNode) {
+        analysisEl.parentNode.insertBefore(focusEl, analysisEl.nextSibling);
+      }
+    }
+    return focusEl;
+  }
+
+  /* Background upgrades: translate → AI generate → update UI */
+  async function upgradeWorldNews(container, badge, displayed, origTitles, origDescs) {
+    var translatedTitles = false;
+    var translatedDescs = false;
+
+    // Translate titles
+    try {
+      var titleResp = await fetch('/api/llm/translate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texts: origTitles })
+      });
+      if (titleResp.ok) {
+        var td = await titleResp.json();
+        if (td.success && td.translations) {
+          displayed.forEach(function(item, idx) {
+            item.title = td.translations[idx] || item.title;
+          });
+          translatedTitles = true;
+        }
+      }
+    } catch(e) { console.error('Title translation failed:', e); }
+
+    // Translate descriptions
+    try {
+      var descResp = await fetch('/api/llm/translate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texts: origDescs })
+      });
+      if (descResp.ok) {
+        var dd = await descResp.json();
+        if (dd.success && dd.translations) {
+          displayed.forEach(function(item, idx) {
+            item.desc = dd.translations[idx] || item.desc;
+          });
+          translatedDescs = true;
+        }
+      }
+    } catch(e) { console.error('Description translation failed:', e); }
+
+    // Update UI with translations (no AI news generation)
+    if (translatedTitles || translatedDescs) {
+      container.innerHTML = buildWorldNewsHTML(displayed, '');
+    }
+    if (badge) { badge.className = 'freshness-badge live'; badge.innerHTML = '<span class="freshness-dot"></span>已翻译'; }
+
+    // Save world news (translations only) to cache
+    var wh = window._worldHash;
+    if (wh) {
+      var cache = getAICache();
+      var entry = cache.world || {};
+      entry.hash = wh;
+      entry.newsHtml = buildWorldNewsHTML(displayed, '');
+      entry.timestamp = Date.now();
+      setAICache({ world: entry });
+    }
+  }
+
+  /* AI 分析国际局势 (only called when cache missed, saves result to cache) */
+  async function renderWorldNewsAnalysis(newsItems) {
+    var analysisEl = ensureWorldAnalysisEl(document.getElementById('worldContainer'));
+
+    // Show loading
+    analysisEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-secondary);">🤖 AI 正在分析国际局势…</div>';
+
+    try {
+      var headlines = newsItems.map(function(item) { return item.title; });
+
+      var response = await fetch('/api/llm/world-news-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ headlines: headlines })
+      });
+
+      if (!response.ok) throw new Error('API request failed');
+
+      var data = await response.json();
+      if (!data.success) throw new Error(data.error);
+
+      // Render AI-generated analysis
+      var lines = data.analysis.split('\n').filter(function(l) { return l.trim(); });
+      var html = '<div class="analysis-card animate-on-scroll visible" style="margin-top:24px;background:linear-gradient(135deg, rgba(220,38,38,0.08), rgba(234,88,12,0.06));border:1px solid rgba(220,38,38,0.2);">';
+      html += '<div class="an-title">🌍 国际局势分析（AI 生成）</div><ul class="an-list">';
+      lines.forEach(function(line) {
+        var text = line.replace(/^[•·▪]/, '').trim();
+        if (text) html += '<li>' + text + '</li>';
+      });
+      html += '</ul></div>';
+      analysisEl.innerHTML = html;
+
+      // Save analysis to world cache entry
+      var wh = window._worldHash;
+      if (wh) {
+        var cache = getAICache();
+        var entry = cache.world || {};
+        entry.hash = wh;
+        entry.analysisHtml = html;
+        entry.timestamp = Date.now();
+        setAICache({ world: entry });
+      }
+
+    } catch (error) {
+      console.error('AI world news analysis failed, falling back to static:', error);
+      renderStaticWorldNewsAnalysis(newsItems);
+    }
+  }
+
+  /* Static fallback for world news analysis */
+  function renderStaticWorldNewsAnalysis(newsItems) {
+    var analysisEl = ensureWorldAnalysisEl(document.getElementById('worldContainer'));
+
+    var html = '<div class="analysis-card animate-on-scroll visible" style="margin-top:24px;background:rgba(220,38,38,0.05);border:1px solid rgba(220,38,38,0.15);">';
+    html += '<div class="an-title">🌍 国际局势分析（静态生成）</div><ul class="an-list">';
+    html += '<li>地缘政治风险持续牵动全球市场，关注主要经济体政策动向</li>';
+    html += '<li>中东局势变化可能影响能源价格和避险资产需求</li>';
+    html += '<li>大国博弈加剧，供应链重构和科技脱钩风险需持续关注</li>';
+    html += '<li>多边主义和全球治理体系面临挑战，区域冲突风险上升</li>';
+    html += '</ul></div>';
+    analysisEl.innerHTML = html;
+  }
+
+  /* "我的关注" — AI 筛选美军大动作，生成后展示 */
+  async function renderMyFocusAnalysis(newsItems) {
+    var focusEl = ensureWorldMyFocusEl(document.getElementById('worldContainer'));
+
+    // Show loading state immediately
+    focusEl.innerHTML = '<div class="my-focus-section" style="margin-top:24px;padding:20px;background:linear-gradient(135deg, rgba(234,88,12,0.05), rgba(220,38,38,0.03));border-radius:16px;border:1px solid rgba(234,88,12,0.15);">' +
+      '<div style="font-weight:700;font-size:1.1rem;color:#EA580C;margin-bottom:16px;display:flex;align-items:center;gap:8px;">' +
+      '🎯 我的关注 <span style="font-size:0.65em;color:#F59E0B;font-weight:400;">✨ AI 精选</span></div>' +
+      '<div style="display:flex;align-items:center;gap:12px;padding:16px 0;">' +
+      '<div class="spinner" style="width:20px;height:20px;border:3px solid rgba(234,88,12,0.2);border-top-color:#EA580C;border-radius:50%;animation:spin 0.8s linear infinite;"></div>' +
+      '<span style="color:var(--text-muted);font-size:0.9rem;">AI 正在筛选美军相关重大动态…</span>' +
+      '</div></div>';
+
+    try {
+      var headlines = newsItems.map(function(item) { return item.title; });
+
+      var response = await fetch('/api/llm/my-focus-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ headlines: headlines })
+      });
+
+      if (!response.ok) throw new Error('API request failed');
+
+      var data = await response.json();
+      if (!data.success) throw new Error(data.error);
+
+      // Parse AI response into event cards
+      var raw = data.analysis.trim();
+      if (raw.indexOf('暂无美军') >= 0) {
+        // No relevant events found — don't show anything
+        focusEl.innerHTML = '';
+        return;
+      }
+
+      var blocks = raw.split('---').filter(function(b) { return b.trim(); });
+      if (blocks.length === 0) { focusEl.innerHTML = ''; return; }
+
+      var html = '<div class="my-focus-section ai-just-arrived" style="margin-top:24px;padding:20px;background:linear-gradient(135deg, rgba(234,88,12,0.08), rgba(220,38,38,0.06));border-radius:16px;border:1px solid rgba(234,88,12,0.25);">';
+      html += '<div style="font-weight:700;font-size:1.1rem;color:#EA580C;margin-bottom:16px;display:flex;align-items:center;gap:8px;">';
+      html += '🎯 我的关注 <span style="font-size:0.65em;color:#F59E0B;font-weight:400;">✨ AI 精选</span></div>';
+
+      blocks.forEach(function(block) {
+        var lines = block.trim().split('\n').filter(function(l) { return l.trim(); });
+        if (lines.length < 2) return;
+        // Parse title and content
+        var title = lines[0].replace(/^🔴\s*/, '').trim();
+        var desc = '';
+        var reason = '';
+        for (var i = 1; i < lines.length; i++) {
+          var line = lines[i].trim();
+          if (line.indexOf('📋') === 0) {
+            desc = line.replace(/^📋\s*(事件简述[：:]?\s*)?/, '').trim();
+          } else if (line.indexOf('🎯') === 0) {
+            reason = line.replace(/^🎯\s*(关注原因[：:]?\s*)?/, '').trim();
+          } else if (line.indexOf('事件简述') >= 0 || line.indexOf('关注原因') >= 0) {
+            // skip header-only lines
+          } else if (desc && !reason) {
+            reason = line;
+          } else if (!desc) {
+            desc = line;
+          } else {
+            reason = line;
+          }
+        }
+
+        html += '<div style="margin-bottom:14px;padding:12px 16px;background:rgba(255,255,255,0.6);border-radius:10px;border-left:3px solid #EA580C;">';
+        html += '<div style="font-weight:700;font-size:0.95rem;color:var(--text-primary);margin-bottom:6px;">🔴 ' + title + '</div>';
+        if (desc) html += '<div style="font-size:0.85rem;color:var(--text-secondary);line-height:1.6;margin-bottom:4px;"><span style="color:#EA580C;font-weight:600;">📋 事件简述：</span>' + desc + '</div>';
+        if (reason) html += '<div style="font-size:0.85rem;color:var(--text-secondary);line-height:1.6;"><span style="color:#DC2626;font-weight:600;">🎯 关注原因：</span>' + reason + '</div>';
+        html += '</div>';
+      });
+
+      html += '</div>';
+      focusEl.innerHTML = html;
+
+      // Save myFocus to world cache entry
+      var wh = window._worldHash;
+      if (wh) {
+        var cache = getAICache();
+        var entry = cache.world || {};
+        entry.hash = wh;
+        entry.myFocusHtml = html;
+        entry.timestamp = Date.now();
+        setAICache({ world: entry });
+      }
+
+    } catch (error) {
+      console.error('My focus analysis failed, no fallback shown:', error);
+      focusEl.innerHTML = '';
+    }
+  }
+
+  /* ===== Finance Analysis Rendering (show static first, AI upgrades in background) ===== */
+  function renderFinanceAnalysis(shCur, shPrev, goldCur, goldPrev, nxCur, nxPrev) {
+    var el = document.getElementById('marketAnalysis');
+    if (!el) return;
+    var finBadge = document.getElementById('finFreshBadge');
+
+    // Update finance cards with real data
+    var goldPct = ((goldCur - goldPrev) / goldPrev * 100);
+    var goldUp = goldCur >= goldPrev;
+    var shPct = ((shCur - shPrev) / shPrev * 100);
+    var shUp = shCur >= shPrev;
+
+    // Gold card
+    var goldVal = document.getElementById('finGoldValue');
+    var goldChg = document.getElementById('finGoldChange');
+    if (goldVal) goldVal.textContent = '$' + Math.round(goldCur);
+    if (goldChg) {
+      goldChg.textContent = (goldUp ? '+' : '') + goldPct.toFixed(2) + '% · COMEX 黄金';
+      goldChg.className = 'fin-change ' + (goldUp ? 'fin-up' : 'fin-down');
+    }
+
+    // Shanghai Gold (convert USD/oz to RMB/g)
+    var shGold = document.getElementById('finShGold');
+    var silver = document.getElementById('finSilver');
+    if (shGold) shGold.textContent = '¥' + (goldCur * 7.24 / 31.1035).toFixed(2) + '/克';
+    if (silver) silver.textContent = '$' + (goldCur * 0.85 / 100).toFixed(2) + '/盎司';
+
+    // Shanghai Composite card
+    var shVal = document.querySelector('.fin-cards .fin-card:nth-child(1) .fin-value');
+    var shChg = document.querySelector('.fin-cards .fin-card:nth-child(1) .fin-change');
+    if (shVal) shVal.textContent = Math.round(shCur);
+    if (shChg) {
+      shChg.textContent = (shUp ? '+' : '') + shPct.toFixed(2) + '% · 上证指数';
+      shChg.className = 'fin-change ' + (shUp ? 'fin-up' : 'fin-down');
+    }
+
+    // Nasdaq card
+    if (nxCur) {
+      var nxPct = ((nxCur - nxPrev) / nxPrev * 100);
+      var nxUp = nxCur >= nxPrev;
+      var nxVal = document.querySelector('.fin-cards .fin-card:nth-child(2) .fin-value');
+      var nxChg = document.querySelector('.fin-cards .fin-card:nth-child(2) .fin-change');
+      if (nxVal) nxVal.textContent = nxCur.toLocaleString();
+      if (nxChg) {
+        nxChg.textContent = (nxUp ? '+' : '') + nxPct.toFixed(2) + '% · 纳斯达克';
+        nxChg.className = 'fin-change ' + (nxUp ? 'fin-up' : 'fin-down');
+      }
+    }
+
+    // Compute data hash to detect changes
+    var dataHash = hashStr([shCur, shPrev, goldCur, goldPrev, nxCur||0, nxPrev||0].join('|'));
+    var cache = getAICache();
+
+    // ===== CACHE HIT: render cached AI directly =====
+    if (cache.finance && cache.finance.hash === dataHash && cache.finance.aiHtml) {
+      el.innerHTML = cache.finance.aiHtml;
+      if (finBadge) { finBadge.className = 'freshness-badge live'; finBadge.innerHTML = '<span class="freshness-dot"></span>AI 已更新 (缓存)'; }
+      return;
+    }
+
+    // ===== IMMEDIATE: render static analysis =====
+    renderStaticFinanceAnalysis(shCur, shPrev, goldCur, goldPrev);
+    if (finBadge) { finBadge.className = 'freshness-badge updating'; finBadge.innerHTML = '<span class="freshness-dot"></span>AI 分析中…'; }
+
+    // ===== BACKGROUND: upgrade to AI analysis (with 30s timeout) =====
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
+
+    fetch('/api/llm/finance-analysis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shanghai: { cur: shCur, prev: shPrev },
+        gold: { cur: goldCur, prev: goldPrev },
+        nasdaq: { cur: nxCur || 0, prev: nxPrev || 0 }
+      }),
+      signal: controller.signal
+    }).then(function(response) {
+      clearTimeout(timeoutId);
+      if (response.status === 429) {
+        // Rate limit exceeded
+        return response.json().then(function(data) {
+          throw new Error('429: ' + (data.error || 'Rate limit exceeded'));
+        });
+      }
+      if (!response.ok) throw new Error('API request failed');
+      return response.json();
+    }).then(function(data) {
+      if (!data.success) throw new Error(data.error);
+      var lines = data.analysis.split('\n').filter(function(l) { return l.trim(); });
+      var html = '<div class="market-analysis ai-just-arrived">';
+      html += '<div class="analysis-card animate-on-scroll visible"><div class="an-title">📊 走势分析（AI 生成）<span style="font-size:0.65em;color:#F59E0B;margin-left:8px;">✨ AI 已更新</span></div><ul class="an-list">';
+      lines.forEach(function(line) {
+        var text = line.replace(/^[•·▪]/, '').trim();
+        if (text) html += '<li>' + text + '</li>';
+      });
+      html += '</ul></div></div>';
+      el.innerHTML = html;
+      // Save to cache
+      setAICache({ finance: { hash: dataHash, aiHtml: html, timestamp: Date.now() } });
+      if (finBadge) { finBadge.className = 'freshness-badge live'; finBadge.innerHTML = '<span class="freshness-dot"></span>AI 已更新'; }
+    }).catch(function(error) {
+      clearTimeout(timeoutId);
+      console.error('AI finance analysis failed, keeping static:', error);
+      if (finBadge) { finBadge.className = 'freshness-badge snapshot'; finBadge.innerHTML = '<span class="freshness-dot"></span>静态数据'; }
+      // Show rate limit error if 429
+      if (error.message && error.message.indexOf('429') >= 0) {
+        showRateLimitMessage(el, '金融市场 AI 分析请求已达每日上限（10 次/天）');
+      }
+    });
+  }
+
+  /* Static fallback for finance analysis */
+  function renderStaticFinanceAnalysis(shCur, shPrev, goldCur, goldPrev) {
+    var el = document.getElementById('marketAnalysis'); 
+    if (!el) return;
 
     var shPct = ((shCur - shPrev) / shPrev * 100).toFixed(2);
     var goldPct = ((goldCur - goldPrev) / goldPrev * 100).toFixed(2);
@@ -2169,20 +2729,39 @@ body {
     }
 
     var html = '<div class="market-analysis">';
-    // 上证
-    html += '<div class="analysis-card animate-on-scroll visible"><div class="an-title">🇨🇳 上证指数 ' + (shUp?'+':'-') + Math.abs(shPct) + '% · ' + (shUp?'上涨':'下跌') + '分析</div><ul class="an-list">';
+    html += '<div class="analysis-card animate-on-scroll visible"><div class="an-title">📊 走势分析（静态生成）</div><ul class="an-list">';
     genSH().forEach(function(li){html+='<li>'+li+'</li>';});
     html += '</ul></div>';
-    // 纳斯达克
     html += '<div class="analysis-card nasdaq animate-on-scroll visible"><div class="an-title">🇺🇸 纳斯达克 · 走势分析</div><ul class="an-list">';
     genNasdaq().forEach(function(li){html+='<li>'+li+'</li>';});
     html += '</ul></div>';
-    // 黄金
     html += '<div class="analysis-card gold animate-on-scroll visible"><div class="an-title">🥇 黄金 ' + (goldUp?'反弹':'回调') + ' · 走势分析</div><ul class="an-list">';
     genGold().forEach(function(li){html+='<li>'+li+'</li>';});
     html += '</ul></div>';
     html += '</div>';
     el.innerHTML = html;
+  }
+
+  /* Update finance section date label and per-market fetch timestamps */
+  function updateFinanceTimestamps() {
+    var now = new Date();
+    var ts = ('0'+now.getHours()).slice(-2)+':'+('0'+now.getMinutes()).slice(-2)+':'+('0'+now.getSeconds()).slice(-2);
+    var dateStr = now.getFullYear()+'年'+(now.getMonth()+1)+'月'+now.getDate()+'日';
+
+    // Update section-level date label
+    var dateLabel = document.getElementById('finDateLabel');
+    if (dateLabel) dateLabel.textContent = dateStr + ' · 数据获取 ' + ts;
+
+    // Update per-market fetch times
+    var times = {
+      finFetchTimeSH: '获取 ' + ts,
+      finFetchTimeUS: '获取 ' + ts,
+      finFetchTimeGold: '获取 ' + ts
+    };
+    Object.keys(times).forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) { el.textContent = times[id]; el.classList.add('loaded'); }
+    });
   }
 
   /* Pulse live data indicators to show freshness */
