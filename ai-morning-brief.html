@@ -2069,9 +2069,35 @@ body {
         return Promise.all(cats.map(function(c){return fetch(base+c+'.json').then(function(r){return r.json();}).then(function(d){return d.models;});})).then(function(d){apiCacheSet('arena',d);return{tag:'arena',ok:true,data:d};})
           .catch(function(){var c=apiCacheGet('arena');return c&&c.data?{tag:'arena',ok:true,data:c.data,fromCache:true}:{tag:'arena',ok:false};});
       })(),
-      // 7. World News — Google News RSS (primary), actually-relevant-api (fallback)
-      fetchWorldNewsRSS().then(function(d){apiCacheSet('world_rss',d.text);return{tag:'world',ok:true,data:d.text,sourceIdx:d.sourceIdx};})
-        .catch(function(){var c=apiCacheGet('world_rss');return c&&c.data?{tag:'world',ok:true,data:c.data,fromCache:true}:{tag:'world',ok:false};})
+      // 7. World News — LLM 生成 (主源), RSS 代理 (回退)
+      (function() {
+        return fetch('/api/llm/world-news-generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ count: 6 })
+        })
+        .then(function(r) { return r.text(); })
+        .then(function(xml) {
+          apiCacheSet('world_rss', xml);
+          renderWorldNews(xml);
+          return { tag:'world', ok:true, source:'llm' };
+        })
+        .catch(function() {
+          // LLM 失败，回退到 RSS 代理
+          return fetch('/api/llm/rss-proxy?url=' + encodeURIComponent('https://actually-relevant-api.onrender.com/api/feed'))
+            .then(function(r) { return r.text(); })
+            .then(function(xml) {
+              apiCacheSet('world_rss', xml);
+              renderWorldNews(xml);
+              return { tag:'world', ok:true, source:'rss' };
+            })
+            .catch(function() {
+              var c = apiCacheGet('world_rss');
+              if (c && c.data) { renderWorldNews(c.data); return { tag:'world', ok:true, fromCache:true }; }
+              return { tag:'world', ok:false };
+            });
+        });
+      })(),
     ]).then(function(rs){
       var ok=0;
       var fromCacheCount=0;
@@ -2240,17 +2266,33 @@ body {
         if (cached && cached.data) renderArena(cached.data);
       });
 
-    // ===== World News — Google News RSS (primary), actually-relevant-api (fallback) =====
-    fetchWorldNewsRSS()
-      .then(function(d) {
-        apiCacheSet('world_rss', d.text);
-        renderWorldNews(d.text);
+    // ===== World News — LLM 生成 (主源), RSS 代理 (回退) =====
+    (function() {
+      return fetch('/api/llm/world-news-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ count: 6 })
       })
-      .catch(function(e){
-        console.error('World news auto-load error:', e);
-        var cached = apiCacheGet('world_rss');
-        if (cached && cached.data) renderWorldNews(cached.data);
+      .then(function(r) { return r.text(); })
+      .then(function(xml) {
+        apiCacheSet('world_rss', xml);
+        renderWorldNews(xml);
+      })
+      .catch(function() {
+        // LLM 失败，回退到 RSS 代理
+        return fetch('/api/llm/rss-proxy?url=' + encodeURIComponent('https://actually-relevant-api.onrender.com/api/feed'))
+          .then(function(r) { return r.text(); })
+          .then(function(xml) {
+            apiCacheSet('world_rss', xml);
+            renderWorldNews(xml);
+          })
+          .catch(function(e) {
+            console.error('World news auto-load error:', e);
+            var cached = apiCacheGet('world_rss');
+            if (cached && cached.data) renderWorldNews(cached.data);
+          });
       });
+    })(),
 
     // ===== Finance Market Data (independent loading with fallback) =====
     var parseStocks = function(rs) {

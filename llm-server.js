@@ -226,34 +226,92 @@ ${headlines.slice(0, 10).map((h, i) => `${i + 1}. ${h}`).join('\n')}
   }
 });
 
-// 6. AI 生成国际局势新闻
+// ===== RSS 代理（解决浏览器 CORS 问题）=====
+// 接受 GET /rss-proxy?url=<encoded-rss-url>
+// 服务端抓取 RSS 并返回原始 XML（无 CORS 限制）
+app.get('/rss-proxy', async (req, res) => {
+  try {
+    const url = req.query.url;
+    if (!url) return res.status(400).json({ success: false, error: 'Missing url parameter' });
+    const timeout = 8000;
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    const rssRes = await fetch(decodeURIComponent(url), { signal: controller.signal });
+    clearTimeout(id);
+    const text = await rssRes.text();
+    res.set('Content-Type', 'application/xml; charset=utf-8');
+    res.send(text);
+  } catch (err) {
+    console.error('RSS proxy error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ===== 国际新闻生成（LLM 驱动，不依赖 RSS）=====
+// POST /world-news-generate
+// Body: { count = 6, lang = 'zh' }
+// 返回: { success, news: [{ title, desc, category, pubDate }] }
 app.post('/world-news-generate', aiRateLimiter, async (req, res) => {
   try {
-    const { headlines, count = 5 } = req.body;
+    const { count = 6, lang = 'zh' } = req.body;
+    const now = new Date();
+    const dateStr = now.getFullYear() + '年' + (now.getMonth()+1) + '月' + now.getDate() + '日';
+    const weekday = ['日','一','二','三','四','五','六'][now.getDay()];
 
-    const prompt = `请根据以下国际新闻标题，生成 ${count} 条详细的新闻报道。每条新闻包含：标题、摘要（100-150字）、地缘政治分析。
-
-新闻标题参考：
-${headlines.slice(0, 10).map((h, i) => `${i + 1}. ${h}`).join('\n')}
+    const systemPrompt = '你是国际新闻编辑，擅长整理每日国际要闻。输出专业、客观、简洁。';
+    const userPrompt = `请生成${dateStr}（周${weekday}）的国际局势要闻 ${count} 条。
 
 要求：
-1. 用中文输出
-2. 每条新闻格式：
-   **标题**
-   摘要：...
-   分析：...
-3. 内容要专业、客观、有深度
-4. 基于真实地缘政治背景，不要编造具体数字
-5. 直接输出新闻内容，不要加任何说明`;
+1. 每条新闻包含：标题、摘要（80-120字）、分类（如：中东局势、俄乌战争、中美关系、欧洲政治、全球经济、亚太安全等）
+2. 用中文输出
+3. 严格按照以下 JSON 数组格式输出，不要加任何说明、不要加markdown代码块标记：
+[{"title":"标题","desc":"摘要内容","category":"分类名称","pubDate":"${dateStr}"}]
+4. 内容要基于你训练数据中最接近当前日期的国际事件，尽量贴近真实
+5. 分类要多样，覆盖不同地区/议题
+6. 直接输出 JSON 数组，开头就是 [，结尾就是 ]`;
 
-    const news = await callDeepSeek([
-      { role: 'system', content: '你是国际新闻记者，擅长地缘政治报道。输出专业客观。' },
-      { role: 'user', content: prompt }
-    ], 1500);
+    const raw = await callDeepSeek([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ], 1200);
 
-    res.json({ success: true, news });
+    // 将 LLM 返回的内容组装成 RSS XML 格式，复用前端 renderWorldNews 解析逻辑
+    let newsItems = [];
+    try {
+      const cleaned = raw.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(cleaned);
+      if (Array.isArray(parsed)) newsItems = parsed;
+    } catch (e) {
+      // 如果不是 JSON，尝试从纯文本解析
+      const lines = raw.split('\n').filter(l => l.trim());
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('**') && lines[i].endsWith('**')) {
+          newsItems.push({
+            title: lines[i].replace(/\*\*/g, '').trim(),
+            desc: (lines[i+1] || '').replace('摘要：', '').trim(),
+            category: '国际',
+            pubDate: dateStr
+          });
+        }
+      }
+    }
+
+    // 组装成 RSS XML 字符串
+    let rssXml = '<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0">\n<channel>\n';
+    rssXml += `  <title>AI 早报 · 国际局势</title>\n`;
+    rssXml += `  <description>由 DeepSeek LLM 生成的每日国际要闻</description>\n`;
+    newsItems.forEach(item => {
+      const title = (item.title || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const desc = (item.desc || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const cat = (item.category || '国际').replace(/&/g, '&amp;');
+      rssXml += `  <item>\n    <title>${title}</title>\n    <description>${desc}</description>\n    <category>${cat}</category>\n    <pubDate>${dateStr}</pubDate>\n  </item>\n`;
+    });
+    rssXml += '</channel>\n</rss>';
+
+    res.set('Content-Type', 'application/xml; charset=utf-8');
+    res.send(rssXml);
   } catch (error) {
-    console.error('World news generation error:', error.message);
+    console.error('World news generate error:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
