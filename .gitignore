@@ -4,3 +4,6 @@
 .env
 node_modules/
 package-lock.json
+
+# 独立子项目（有自己的仓库）
+sifan-lottery-h5/

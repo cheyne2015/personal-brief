@@ -378,6 +378,20 @@ body {
   background: var(--clr-weather-bg); color: var(--clr-weather);
   padding: 4px 10px; border-radius: 100px; font-weight: 500;
 }
+/* 分时段天气（今天卡片展开） */
+.weather-card.today-card { grid-column: 1 / -1; }
+.weather-hourly { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; }
+.weather-hourly-title { font-size: 0.78rem; font-weight: 700; color: var(--clr-weather); letter-spacing: 0.5px; margin-bottom: 10px; text-transform: uppercase; }
+.weather-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (max-width: 600px) { .weather-slots { grid-template-columns: repeat(2, 1fr); } }
+.weather-slot {
+  background: var(--clr-weather-bg); border-radius: 10px;
+  padding: 9px 11px; font-size: 0.8rem;
+}
+.weather-slot .slot-label { font-weight: 700; color: var(--clr-weather); margin-bottom: 3px; font-size: 0.74rem; }
+.weather-slot .slot-temp { font-size: 1.05rem; font-weight: 800; color: var(--text); }
+.weather-slot .slot-desc { color: var(--text-secondary); font-size: 0.75rem; margin-top: 2px; }
+.weather-slot .slot-rain { font-size: 0.7rem; color: #3B82F6; margin-top: 2px; }
 .weather-alert {
   background: linear-gradient(135deg, #FFF7ED, #FFF1F2);
   border: 1px solid #FECACA; border-radius: var(--radius-md);
@@ -589,8 +603,12 @@ body {
   width: 4px; height: 100%; background: var(--clr-world); border-radius: 4px 0 0 4px;
 }
 .world-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
-.world-card h4 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+.world-card h4 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
 .world-card p { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.7; }
+.world-card .news-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.world-card .news-source-tag { font-size: 0.75rem; font-weight: 600; color: var(--clr-world); background: rgba(220,38,38,0.08); border-radius: 4px; padding: 2px 7px; }
+.world-card .news-pub-time { font-size: 0.72rem; color: var(--text-muted); display: flex; align-items: center; gap: 3px; }
+.world-card .news-pub-time::before { content: "🕐"; font-size: 0.7rem; }
 .world-breaking {
   background: linear-gradient(135deg, #FEF2F2, #FFF1F2);
   border: 2px solid #FECACA; border-radius: var(--radius-md);
@@ -1748,30 +1766,124 @@ body {
   }
 
   /* ===== Weather Forecast Rendering ===== */
-  function renderWeatherCards(daily) {
+
+  // WMO code → text/icon for hourly Open-Meteo
+  function wmoText(code) {
+    if (code === 0) return '晴';
+    if (code <= 2) return '大部晴';
+    if (code === 3) return '阴天';
+    if (code <= 48) return '雾';
+    if (code <= 55) return '细雨';
+    if (code <= 65) return '小雨';
+    if (code <= 77) return '雪';
+    if (code <= 82) return '阵雨';
+    return '雷雨';
+  }
+
+  function windKmhLevel(kmh) {
+    if (kmh < 6) return '1级';
+    if (kmh < 12) return '2级';
+    if (kmh < 20) return '3级';
+    if (kmh < 29) return '4级';
+    return '5级+';
+  }
+
+  // Render today's hourly slots from Open-Meteo hourly data
+  function renderHourlySlots(hourly, targetDate) {
+    var slotDefs = [
+      {label:'🌅 早晨', icon:'🌅', start:6, end:9},
+      {label:'☀️ 上午', icon:'☀️', start:9, end:12},
+      {label:'🌞 中午', icon:'🌞', start:12, end:15},
+      {label:'⛅ 下午', icon:'⛅', start:15, end:18},
+      {label:'🌆 傍晚', icon:'🌆', start:18, end:21},
+      {label:'🌙 夜间', icon:'🌙', start:21, end:24},
+    ];
+    var times = hourly.time, temps = hourly.temperature_2m;
+    var prec = hourly.precipitation_probability, wind = hourly.windspeed_10m;
+    var wcode = hourly.weathercode;
+
+    // Index by hour for the target date
+    var byHour = {};
+    for (var i = 0; i < times.length; i++) {
+      if (times[i].startsWith(targetDate)) {
+        var h = parseInt(times[i].split('T')[1].split(':')[0]);
+        byHour[h] = {temp: temps[i], rain: prec[i], wind: wind[i], code: wcode[i]};
+      }
+    }
+
+    var html = '<div class="weather-hourly"><div class="weather-hourly-title">📅 今日分时段预报</div><div class="weather-slots">';
+    slotDefs.forEach(function(slot) {
+      var hours = [];
+      for (var h = slot.start; h < slot.end; h++) { if (byHour[h]) hours.push(byHour[h]); }
+      if (!hours.length) return;
+      var avgT = hours.reduce(function(s,x){return s+x.temp;},0)/hours.length;
+      var maxRain = Math.max.apply(null, hours.map(function(x){return x.rain||0;}));
+      var avgWind = hours.reduce(function(s,x){return s+x.wind;},0)/hours.length;
+      var midCode = hours[Math.floor(hours.length/2)].code;
+      html += '<div class="weather-slot">';
+      html += '<div class="slot-label">' + slot.label + '</div>';
+      html += '<div class="slot-temp">' + Math.round(avgT) + '°C</div>';
+      html += '<div class="slot-desc">' + wmoText(midCode) + ' · ' + windKmhLevel(avgWind) + '</div>';
+      if (maxRain > 0) html += '<div class="slot-rain">💧 ' + maxRain + '%</div>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  // Called with both seniverse daily data and open-meteo combined data
+  function renderWeatherCards(daily, seniverseData, openMeteoHourly) {
     var dayLabels = ['今天','明天','后天'];
     for (var d = 0; d < 3; d++) {
       var card = document.getElementById('wc'+d); if (!card) continue;
       var wc = daily.weather_code[d], tmax = daily.temperature_2m_max[d], tmin = daily.temperature_2m_min[d];
       var rain = daily.precipitation_probability_max[d], wind = daily.wind_speed_10m_max[d];
       var label = dayLabels[d];
+      var dateObj;
       if (d === 0) {
-        var now = new Date();
-        label = '今天 ' + (now.getMonth()+1) + '/' + now.getDate();
+        dateObj = new Date();
+        label = '今天 ' + (dateObj.getMonth()+1) + '/' + dateObj.getDate();
       } else if (d === 1) {
-        var t = new Date(); t.setDate(t.getDate()+1);
-        label = '明天 ' + (t.getMonth()+1) + '/' + t.getDate();
+        dateObj = new Date(); dateObj.setDate(dateObj.getDate()+1);
+        label = '明天 ' + (dateObj.getMonth()+1) + '/' + dateObj.getDate();
       } else {
-        var t = new Date(); t.setDate(t.getDate()+2);
-        label = '后天 ' + (t.getMonth()+1) + '/' + t.getDate();
+        dateObj = new Date(); dateObj.setDate(dateObj.getDate()+2);
+        label = '后天 ' + (dateObj.getMonth()+1) + '/' + dateObj.getDate();
       }
+
       var icon = wmoIcon[wc] || '🌤️';
       var desc = wmoMap[wc] || '多云';
+
+      // 今天：优先使用心知天气数据
+      if (d === 0 && seniverseData) {
+        var snResults = (seniverseData.daily && seniverseData.daily.results && seniverseData.daily.results[0]) || null;
+        var snDaily = snResults && snResults.daily && snResults.daily[0];
+        var snNowResults = (seniverseData.now && seniverseData.now.results && seniverseData.now.results[0]) || null;
+        var snNow = snNowResults && snNowResults.now;
+        if (snNow) {
+          var nowTemp = parseInt(snNow.temperature || '0');
+          var t2 = document.querySelector('.hero-weather-brief .temp');
+          if (t2) t2.textContent = nowTemp + '°';
+          var s2 = document.querySelector('.hero-weather-brief .desc strong');
+          if (s2) s2.textContent = '成都双流 · ' + (snNow.text || '多云');
+        }
+        if (snDaily) {
+          tmax = parseInt(snDaily.high || tmax);
+          tmin = parseInt(snDaily.low || tmin);
+          rain = Math.round(parseFloat(snDaily.precip || 0) * 100);
+          icon = wmoIcon[wc] || '🌤️';
+          desc = snDaily.text_day || desc;
+        }
+        // Today card stretches full width
+        card.classList.add('today-card');
+      } else {
+        card.classList.remove('today-card');
+      }
+
       card.querySelector('.day-label').textContent = icon + ' ' + label;
       card.querySelector('.big-temp').textContent = Math.round(tmax) + '°';
       card.querySelector('.big-temp').removeAttribute('style');
 
-      // Temperature difference from previous day
       var prevMax = d > 0 ? daily.temperature_2m_max[d-1] : tmax;
       var diff = Math.round(tmax - prevMax);
       var diffHtml = '';
@@ -1792,6 +1904,14 @@ body {
       if (rain >= 50) extras.push('<span>☂️ 建议带伞</span>');
       if (d > 0 && diff < -4) extras.push('<span>🧥 添衣保暖</span>');
       card.querySelector('.extra').innerHTML = extras.join('');
+
+      // 今天：添加分时段预报
+      if (d === 0 && openMeteoHourly) {
+        var existHourly = card.querySelector('.weather-hourly');
+        if (existHourly) existHourly.remove();
+        var todayStr = dateObj.getFullYear() + '-' + ('0'+(dateObj.getMonth()+1)).slice(-2) + '-' + ('0'+dateObj.getDate()).slice(-2);
+        card.insertAdjacentHTML('beforeend', renderHourlySlots(openMeteoHourly, todayStr));
+      }
     }
 
     // Weather alert
@@ -1820,6 +1940,21 @@ body {
     if (diffMin < 60) return diffMin + ' 分钟前';
     if (diffMin < 1440) return Math.floor(diffMin / 60) + ' 小时前';
     return Math.floor(diffMin / 1440) + ' 天前';
+  }
+
+  function fmtPubDate(dateStr) {
+    if (!dateStr) return '';
+    var d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    var now = new Date();
+    var diffMs = now - d;
+    var diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 60) return diffMin + ' 分钟前';
+    if (diffMin < 1440) return Math.floor(diffMin / 60) + ' 小时前';
+    var diffDay = Math.floor(diffMin / 1440);
+    if (diffDay < 7) return diffDay + ' 天前';
+    var mo = d.getMonth()+1, da = d.getDate(), hr = d.getHours(), mi = d.getMinutes();
+    return mo + '月' + da + '日 ' + ('0'+hr).slice(-2) + ':' + ('0'+mi).slice(-2);
   }
 
   function sourceIcon(source) {
@@ -1898,10 +2033,21 @@ body {
     clearAICache(); // wipe AI cache on manual refresh
 
     Promise.all([
-      // 1. Weather (current + 7-day forecast) — cache fallback
-      fetch('https://api.open-meteo.com/v1/forecast?latitude=30.5728&longitude=104.0668&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,wind_speed_10m_max&timezone=Asia/Shanghai&forecast_days=7')
-        .then(function(r){return r.json();}).then(function(d){apiCacheSet('weather',d);return{tag:'weather',ok:true,data:d};})
-        .catch(function(){var c=apiCacheGet('weather');return c&&c.data?{tag:'weather',ok:true,data:c.data,fromCache:true}:{tag:'weather',ok:false};}),
+      // 1. Weather (current + 3-day forecast) — 心知天气 + Open-Meteo hourly
+      (function() {
+        var omUrl = 'https://api.open-meteo.com/v1/forecast?latitude=30.5728&longitude=104.0668&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,wind_speed_10m_max&hourly=temperature_2m,precipitation_probability,weathercode,windspeed_10m&timezone=Asia/Shanghai&forecast_days=3';
+        return Promise.all([
+          fetch(omUrl).then(function(r){return r.json();}),
+          fetch('/api/llm/weather-now').then(function(r){return r.json();}).catch(function(){return null;})
+        ]).then(function(rs){
+          apiCacheSet('weather', rs[0]);
+          apiCacheSet('weather_seniverse', rs[1]);
+          return {tag:'weather', ok:true, data:rs[0], seniverse:rs[1]};
+        }).catch(function(){
+          var c=apiCacheGet('weather');
+          return c&&c.data ? {tag:'weather',ok:true,data:c.data,seniverse:apiCacheGet('weather_seniverse')&&apiCacheGet('weather_seniverse').data,fromCache:true} : {tag:'weather',ok:false};
+        });
+      })(),
       // 2. 上证指数 — cache fallback
       loadVar('https://qt.gtimg.cn/q=sh000001','v_sh000001').then(function(d){apiCacheSet('sh_raw',d);return{tag:'sh',ok:true,data:d};})
         .catch(function(){var c=apiCacheGet('sh_raw');return c&&c.data?{tag:'sh',ok:true,data:c.data,fromCache:true}:{tag:'sh',ok:false};}),
@@ -1923,8 +2069,8 @@ body {
         return Promise.all(cats.map(function(c){return fetch(base+c+'.json').then(function(r){return r.json();}).then(function(d){return d.models;});})).then(function(d){apiCacheSet('arena',d);return{tag:'arena',ok:true,data:d};})
           .catch(function(){var c=apiCacheGet('arena');return c&&c.data?{tag:'arena',ok:true,data:c.data,fromCache:true}:{tag:'arena',ok:false};});
       })(),
-      // 7. World News (RSS, CORS enabled) — cache fallback
-      fetch('https://actually-relevant-api.onrender.com/api/feed').then(function(r){return r.text();}).then(function(d){apiCacheSet('world_rss',d);return{tag:'world',ok:true,data:d};})
+      // 7. World News — Google News RSS (primary), actually-relevant-api (fallback)
+      fetchWorldNewsRSS().then(function(d){apiCacheSet('world_rss',d.text);return{tag:'world',ok:true,data:d.text,sourceIdx:d.sourceIdx};})
         .catch(function(){var c=apiCacheGet('world_rss');return c&&c.data?{tag:'world',ok:true,data:c.data,fromCache:true}:{tag:'world',ok:false};})
     ]).then(function(rs){
       var ok=0;
@@ -1935,13 +2081,18 @@ body {
         if(r.fromCache) fromCacheCount++;
 
         if(r.tag==='weather'){
-          var c=r.data.current;
-          var d=r.data.daily;
-          var t=document.querySelector('.hero-weather-brief .temp'); if(t)t.textContent=Math.round(c.temperature_2m)+'°';
-          var s=document.querySelector('.hero-weather-brief .desc strong'); if(s)s.textContent='成都双流 · '+(wmoMap[c.weather_code]||'多云');
-          var desc=document.querySelector('.hero-weather-brief .desc span'); if(desc)desc.textContent='体感 '+Math.round(c.apparent_temperature)+'° · 湿度 '+c.relative_humidity_2m+'% · 微风 '+Math.round(c.wind_speed_10m)+' 级';
-          // Render forecast cards
-          if(d) renderWeatherCards(d);
+          var d=r.data&&r.data.daily;
+          var snData = r.seniverse && r.seniverse.success ? {now: r.seniverse.now, daily: r.seniverse.daily} : null;
+          // Hero bar: prefer seniverse current, fallback open-meteo current
+          if (r.data && r.data.current) {
+            var c=r.data.current;
+            if (!snData) {
+              var t=document.querySelector('.hero-weather-brief .temp'); if(t)t.textContent=Math.round(c.temperature_2m)+'°';
+              var s=document.querySelector('.hero-weather-brief .desc strong'); if(s)s.textContent='成都双流 · '+(wmoMap[c.weather_code]||'多云');
+              var desc=document.querySelector('.hero-weather-brief .desc span'); if(desc)desc.textContent='体感 '+Math.round(c.apparent_temperature)+'° · 湿度 '+c.relative_humidity_2m+'% · 微风 '+Math.round(c.wind_speed_10m)+' km/h';
+            }
+          }
+          if(d) renderWeatherCards(d, snData, r.data && r.data.hourly ? r.data.hourly : null);
           ok++;
         }
 
@@ -2016,18 +2167,31 @@ body {
 
   // Auto-run on DOM ready — network-first, cache-fallback for all API data
   function initAutoLoad() {
-    // ===== Weather =====
-    fetch('https://api.open-meteo.com/v1/forecast?latitude=30.5728&longitude=104.0668&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,wind_speed_10m_max&timezone=Asia/Shanghai&forecast_days=7')
-      .then(function(r){return r.json();})
-      .then(function(d){
-        apiCacheSet('weather', d);
-        if(d.daily) renderWeatherCards(d.daily);
-      })
-      .catch(function(e){
-        console.error('Weather auto-load failed:',e);
-        var cached = apiCacheGet('weather');
-        if (cached && cached.data && cached.data.daily) renderWeatherCards(cached.data.daily);
-      });
+    // ===== Weather: 心知天气(当前+日预报) + Open-Meteo(daily+hourly) =====
+    var openMeteoDaily = 'https://api.open-meteo.com/v1/forecast?latitude=30.5728&longitude=104.0668&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,wind_speed_10m_max&hourly=temperature_2m,precipitation_probability,weathercode,windspeed_10m&timezone=Asia/Shanghai&forecast_days=3';
+    var seniverseProxy = '/api/llm/weather-now';
+
+    Promise.all([
+      fetch(openMeteoDaily).then(function(r){return r.json();}),
+      fetch(seniverseProxy).then(function(r){return r.json();}).catch(function(){return null;})
+    ]).then(function(results) {
+      var omData = results[0], snData = results[1];
+      if (omData) {
+        apiCacheSet('weather', omData);
+        apiCacheSet('weather_seniverse', snData);
+        if (omData.daily) {
+          var snNowDaily = snData && snData.success ? {now: snData.now, daily: snData.daily} : null;
+          renderWeatherCards(omData.daily, snNowDaily, omData.hourly || null);
+        }
+      }
+    }).catch(function(e){
+      console.error('Weather auto-load failed:',e);
+      var cached = apiCacheGet('weather');
+      if (cached && cached.data && cached.data.daily) {
+        var snCached = apiCacheGet('weather_seniverse');
+        renderWeatherCards(cached.data.daily, snCached && snCached.data, cached.data.hourly || null);
+      }
+    });
 
     // ===== AI News =====
     var c = document.getElementById('aiNewsContainer');
@@ -2076,12 +2240,11 @@ body {
         if (cached && cached.data) renderArena(cached.data);
       });
 
-    // ===== World News (RSS) =====
-    fetch('https://actually-relevant-api.onrender.com/api/feed')
-      .then(function(r){return r.text();})
-      .then(function(d){
-        apiCacheSet('world_rss', d);
-        renderWorldNews(d);
+    // ===== World News — Google News RSS (primary), actually-relevant-api (fallback) =====
+    fetchWorldNewsRSS()
+      .then(function(d) {
+        apiCacheSet('world_rss', d.text);
+        renderWorldNews(d.text);
       })
       .catch(function(e){
         console.error('World news auto-load error:', e);
@@ -2223,6 +2386,7 @@ body {
     if (breaking) {
       html += '<div class="world-breaking animate-on-scroll visible">';
       html += '<span class="tag">⚡ ' + breaking.category + '</span>';
+      if (breaking.pubDate) html += '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px;">🕐 ' + fmtPubDate(breaking.pubDate) + '</span>';
       html += '<p><strong>' + breaking.title + '</strong>';
       if (breaking.titleEn && breaking.titleEn !== breaking.title) {
         html += ' <small style="opacity:0.55;font-weight:400;">(' + breaking.titleEn + ')</small>';
@@ -2242,12 +2406,43 @@ body {
         html += ' <small style="display:block;opacity:0.55;font-weight:400;font-size:0.82em;margin-top:2px;">' + item.titleEn + '</small>';
       }
       html += '</h4>';
+      html += '<div class="news-meta">';
+      html += '<span class="news-source-tag">' + item.category + '</span>';
+      if (item.pubDate) html += '<span class="news-pub-time">' + fmtPubDate(item.pubDate) + '</span>';
+      html += '</div>';
       html += '<p>' + item.desc.slice(0, 250) + (item.desc.length>250?'…':'') + '</p>';
       html += '<a href="' + item.link + '" class="card-action" target="_blank" rel="noopener noreferrer">阅读原文 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>';
       html += '</div>';
     });
     html += '</div>';
     return html;
+  }
+
+  /* ===== Multi-source RSS fetcher with fallback ===== */
+  var WORLD_RSS_SOURCES = [
+    'https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en',
+    'https://actually-relevant-api.onrender.com/api/feed'
+  ];
+
+  function stripHtml(html) {
+    var div = document.createElement('div');
+    div.innerHTML = html;
+    return (div.textContent || div.innerText || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function fetchWorldNewsRSS() {
+    // Try sources in order; return promise that resolves with {text, sourceIdx}
+    function trySource(idx) {
+      if (idx >= WORLD_RSS_SOURCES.length) return Promise.reject(new Error('All RSS sources exhausted'));
+      return fetch(WORLD_RSS_SOURCES[idx])
+        .then(function(r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.text();
+        })
+        .then(function(txt) { return { text: txt, sourceIdx: idx }; })
+        .catch(function() { return trySource(idx + 1); });
+    }
+    return trySource(0);
   }
 
   /* ===== World News Rendering (cache-first: show cached or raw data, upgrade in background) ===== */
@@ -2262,15 +2457,30 @@ body {
       var items = doc.querySelectorAll('item');
       if (!items || items.length === 0) throw new Error('No items in RSS');
 
+      // Auto-detect: Google News RSS uses <source> for publisher, not <category>
+      var hasSource = items[0] && items[0].querySelector('source');
+      var hasCategory = items[0] && items[0].querySelector('category');
+      var isGNews = hasSource && !hasCategory;
+
       var newsItems = [];
       items.forEach(function(item) {
         var title = item.querySelector('title').textContent;
         var link = item.querySelector('link').textContent;
-        var desc = item.querySelector('description').textContent;
+        var descRaw = item.querySelector('description').textContent;
         var pubDate = item.querySelector('pubDate').textContent;
-        var cat = item.querySelector('category');
-        var category = cat ? cat.textContent : 'World';
-        newsItems.push({title:title, link:link, desc:desc, pubDate:pubDate, category:category});
+
+        // Google News: use <source> as publisher name; strip HTML from description
+        var category = 'World';
+        if (isGNews) {
+          var srcEl = item.querySelector('source');
+          category = srcEl ? srcEl.textContent : 'World';
+          descRaw = stripHtml(descRaw);
+        } else {
+          var cat = item.querySelector('category');
+          if (cat) category = cat.textContent;
+        }
+
+        newsItems.push({title:title, link:link, desc:descRaw, pubDate:pubDate, category:category});
       });
 
       var priorityTerms = ['War','Iran','Gulf','Nuclear','Strike','Conflict','Governance','Sanction','Military'];

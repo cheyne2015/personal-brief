@@ -337,6 +337,76 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', model: 'deepseek-v4-flash', version: '1.0.0' });
 });
 
+// ===== 心知天气代理（GET /weather-now）=====
+// 返回：当前天气 + 3天日预报
+// 多组密钥自动轮询
+const crypto = require('crypto');
+// 心知天气密钥从环境变量读取，格式：SENIVERSE_KEYS="uid1:key1,uid2:key2,..."
+var seniversePairs = (process.env.SENIVERSE_KEYS || '').split(',');
+var SENIVERSE_CREDENTIALS = [];
+seniversePairs.forEach(function(pair) {
+  var parts = pair.trim().split(':');
+  if (parts.length === 2) SENIVERSE_CREDENTIALS.push({ public_key: parts[0], private_key: parts[1] });
+});
+const SENIVERSE_LOCATION = '30.520314:104.082823';
+
+function seniverseSign(uid, privKey) {
+  var ts = Math.floor(Date.now() / 1000);
+  var ttl = 300;
+  var paramStr = 'ts=' + ts + '&ttl=' + ttl + '&uid=' + uid;
+  var sig = crypto.createHmac('sha1', privKey).update(paramStr).digest('base64');
+  return { ts: ts, ttl: ttl, sig: encodeURIComponent(sig) };
+}
+
+async function callSeniverse(endpoint, uid, privKey) {
+  var sign = seniverseSign(uid, privKey);
+  var extra = '';
+  if (endpoint === 'daily.json') {
+    extra = '&start=0&days=3';
+  }
+  var url = 'https://api.seniverse.com/v3/weather/' + endpoint +
+    '?location=' + encodeURIComponent(SENIVERSE_LOCATION) +
+    '&language=zh-Hans&unit=c' + extra +
+    '&ts=' + sign.ts + '&ttl=' + sign.ttl + '&uid=' + uid +
+    '&sig=' + sign.sig;
+  var resp = await fetch(url);
+  return resp.json();
+}
+
+async function callSeniverseWithRetry(endpoint) {
+  for (var i = 0; i < SENIVERSE_CREDENTIALS.length; i++) {
+    try {
+      var cred = SENIVERSE_CREDENTIALS[i];
+      var result = await callSeniverse(endpoint, cred.public_key, cred.private_key);
+      if (result.status) {
+        console.warn('Seniverse key #' + i + ' failed:', result.status);
+        continue;
+      }
+      return result;
+    } catch (e) {
+      console.error('Seniverse key #' + i + ' error:', e.message);
+    }
+  }
+  return null;
+}
+
+app.get('/weather-now', async (req, res) => {
+  try {
+    const [nowResult, dailyResult] = await Promise.all([
+      callSeniverseWithRetry('now.json'),
+      callSeniverseWithRetry('daily.json'),
+    ]);
+
+    res.json({
+      success: !!(nowResult || dailyResult),
+      now: nowResult || null,
+      daily: dailyResult || null,
+    });
+  } catch (err) {
+    console.error('Seniverse weather error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 // 404 处理
 app.use((req, res) => {
   res.status(404).json({ success: false, error: 'API endpoint not found' });
