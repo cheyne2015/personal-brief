@@ -1,7 +1,7 @@
 # AI Morning Brief — 部署文档
 
 > 一个 AI 驱动的每日简报仪表盘，聚合 AI 资讯、国际局势、LM Arena 排行榜、天气预报和金融市场数据。
-> 单文件 HTML 前端 + Node.js LLM 后端，部署在 Nginx 反向代理之后。
+> 静态 HTML/CSS/JS 前端 + Node.js LLM 后端，部署在 Nginx 反向代理之后。
 
 ---
 
@@ -41,7 +41,9 @@ Nginx (80端口) ─────────────────────
 
 ```
 项目根目录/
-├── ai-morning-brief.html   # 前端单文件（131KB，包含 CSS + JS）
+├── ai-morning-brief.html   # 前端 HTML 结构
+├── styles.css              # 前端样式
+├── app.js                  # 前端交互与数据加载逻辑
 ├── llm-server.js           # LLM 后端服务（Express）
 ├── package.json            # 后端依赖声明
 ├── nginx.conf              # Nginx 完整配置参考
@@ -98,6 +100,8 @@ npm -v
 ```bash
 # 将以下文件上传到服务器 /usr/share/nginx/html/
 scp ai-morning-brief.html root@YOUR_SERVER_IP:/usr/share/nginx/html/index.html
+scp styles.css root@YOUR_SERVER_IP:/usr/share/nginx/html/
+scp app.js root@YOUR_SERVER_IP:/usr/share/nginx/html/
 scp favicon.ico root@YOUR_SERVER_IP:/usr/share/nginx/html/
 scp favicon.png root@YOUR_SERVER_IP:/usr/share/nginx/html/
 ```
@@ -221,8 +225,8 @@ systemctl start llm-backend
 | POST | `/ai-news-summary` | AI 日报摘要 | 10 次/天 |
 | POST | `/arena-comment` | Arena 排行榜点评 | 10 次/天 |
 | POST | `/world-news-analysis` | 国际局势简要分析 | 10 次/天 |
-| POST | `/world-news-generate` | AI 生成详细报道 | 10 次/天 |
-| POST | `/my-focus-analysis` | 美军大动作筛选 | 10 次/天 |
+| POST | `/world-news-generate` | 已停用；国际局势改为 RSS + 翻译 + 分析 | 10 次/天 |
+| POST | `/my-focus-analysis` | AI 生成“我的关注” | 10 次/天 |
 
 ---
 
@@ -279,6 +283,8 @@ systemctl restart llm-backend
 
 ```bash
 scp ai-morning-brief.html root@YOUR_SERVER_IP:/usr/share/nginx/html/index.html
+scp styles.css root@YOUR_SERVER_IP:/usr/share/nginx/html/
+scp app.js root@YOUR_SERVER_IP:/usr/share/nginx/html/
 # Nginx 静态文件无需重启
 ```
 
@@ -291,11 +297,12 @@ scp llm-server.js root@YOUR_SERVER_IP:/opt/llm-backend/
 
 ### 调整速率限制
 
-编辑 `/opt/llm-backend/llm-server.js`，修改常量：
+编辑 `/opt/llm-backend/.env`，修改环境变量：
 
-```javascript
-const TRANSLATE_DAILY_LIMIT = 50;  // 翻译次数/天
-const ANALYSIS_DAILY_LIMIT = 10;   // 分析次数/天
+```bash
+TRANSLATE_DAILY_LIMIT=50
+ANALYSIS_DAILY_LIMIT=20
+GENERATE_DAILY_LIMIT=10
 ```
 
 修改后重启后端即可生效。
@@ -399,7 +406,7 @@ echo "0 3 * * * certbot renew --quiet" | crontab -
 |------|---------|
 | 2026-06-15 | 初始版本：AI 日报、国际局势、Arena、天气、金融市场五板块 |
 | 2026-06-16 | 增加国际局势翻译、金融 AI 分析、渐进式加载、缓存机制、速率限制 |
-| 2026-06-16 | 重构国际局势板块，新增"我的关注"（美军大动作筛选） |
+| 2026-06-16 | 重构国际局势板块，新增 AI 生成的"我的关注" |
 | 2026-06-16 | 移除所有硬编码日期/价格，全面动态化；修复 Arena 数据 URL 硬编码问题 |
 
 ---

@@ -1,17 +1,18 @@
 {
   "name": "llm-backend",
   "version": "1.0.0",
-  "description": "轻量级 LLM 后端服务（DeepSeek V4 Flash）",
+  "description": "AI Morning Brief LLM backend service",
   "main": "llm-server.js",
   "scripts": {
     "start": "node llm-server.js",
-    "dev": "nodemon llm-server.js"
+    "dev": "nodemon llm-server.js",
+    "test": "node tests/static-integrity.js",
+    "test:smoke": "node tests/smoke.js"
   },
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "node-fetch": "^3.3.2"
+    "dotenv": "^16.3.1"
   },
   "engines": {
     "node": ">=18.0.0"
