@@ -62,6 +62,9 @@ async function waitUntilReady() {
 
     const gold = await (await request('/api/llm/market/gold')).json();
     assert(gold.success && gold.raw, 'Gold quote is unavailable');
+    assert(Number.isFinite(Number(String(gold.shGoldRaw || '').split(',')[3])), 'Shanghai gold quote is unavailable');
+    assert.strictEqual(gold.shGoldSource, 'Shanghai Gold Exchange', 'Shanghai gold should use the official exchange source');
+    assert(gold.shGoldTimestamp, 'Shanghai gold quote timestamp is missing');
     console.log('Smoke test OK: public assets, sensitive-file blocking, news and market APIs.');
   } finally {
     child.kill();

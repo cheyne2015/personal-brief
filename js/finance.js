@@ -253,15 +253,19 @@ ready(function() {
       if (!data || !data.success) return;
       rememberMarketQuoteTime('gold', parseSinaQuoteTime(data.raw));
       updateFinanceTimestamps(marketQuoteTimes);
+      var shGoldEl = document.getElementById('finShGold');
       if (data.shGoldRaw) {
         var sh = String(data.shGoldRaw).split(',');
-        var el = document.getElementById('finShGold');
         var shPrice = sh.length > 3 ? parseFloat(sh[3]) : NaN;
-        if (el && isFinite(shPrice)) {
-          el.textContent = '¥' + shPrice.toFixed(2) + '/克';
-        } else if (el) {
-          el.textContent = '暂无数据';
+        if (shGoldEl && isFinite(shPrice)) {
+          shGoldEl.textContent = '¥' + shPrice.toFixed(2) + '/克';
+          shGoldEl.title = [data.shGoldSource || '上海黄金交易所', 'Au99.99', data.shGoldTimestamp].filter(Boolean).join(' · ');
+        } else if (shGoldEl) {
+          shGoldEl.textContent = '暂无数据';
         }
+      } else if (shGoldEl) {
+        shGoldEl.textContent = '暂无数据';
+        shGoldEl.title = '上海黄金交易所行情暂不可用';
       }
       if (data.oilRaw) {
         var oil = String(data.oilRaw).split(',');

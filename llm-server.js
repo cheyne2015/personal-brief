@@ -752,10 +752,38 @@ app.get('/market/gold', async (req, res) => {
     const shGold = rawText.match(/hq_str_SGE_AUTD="([^"]*)"/);
     const shGold9999 = rawText.match(/hq_str_SGE_AU9999="([^"]*)"/);
     let shGoldRaw = shGold ? shGold[1] : '';
+    let shGoldTimestamp = '';
+    let shGoldSource = shGoldRaw ? 'Sina' : '';
     const shGoldPrice = parseFloat(shGoldRaw.split(',')[3]);
     if (!Number.isFinite(shGoldPrice)) {
       shGoldRaw = shGold9999 ? shGold9999[1] : '';
+      if (shGoldRaw) shGoldSource = 'Sina';
     }
+    // Use the exchange's own Au99.99 series as the authoritative Shanghai gold quote.
+    try {
+      const sge = await fetchWithTimeout('https://www.sge.com.cn/graph/quotations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'Referer': 'https://www.sge.com.cn/',
+          'User-Agent': 'Mozilla/5.0',
+          'Accept': 'application/json'
+        },
+        body: 'instid=Au99.99'
+      }, 10000);
+      if (sge.ok) {
+        const quote = await sge.json();
+        const prices = Array.isArray(quote.data)
+          ? quote.data.map(Number).filter(value => Number.isFinite(value) && value > 0)
+          : [];
+        if (prices.length) {
+          const contract = String(quote.heyue || 'Au99.99');
+          shGoldRaw = `${contract},${contract},${contract},${prices[prices.length - 1]},--,--,--,--,--,--,--,--,--,--,--,--,SGE,`;
+          shGoldTimestamp = String(quote.delaystr || '');
+          shGoldSource = 'Shanghai Gold Exchange';
+        }
+      }
+    } catch (err) {}
     if (!Number.isFinite(parseFloat(shGoldRaw.split(',')[3]))) {
       try {
         const eastmoney = await fetchWithTimeout('https://push2.eastmoney.com/api/qt/stock/get?fltt=2&fields=f43,f57,f58,f60,f169,f170&secid=118.mAUTD', {
@@ -769,6 +797,7 @@ app.get('/market/gold', async (req, res) => {
           const q = quote && quote.data ? quote.data : {};
           if (Number.isFinite(Number(q.f43))) {
             shGoldRaw = `${q.f57 || 'mAUTD'},${q.f58 || 'Mini Gold T+D'},${q.f58 || 'Mini Gold T+D'},${q.f43},--,--,--,--,--,--,--,--,--,--,--,--,Eastmoney,${q.f170 || ''}%`;
+            shGoldSource = 'Eastmoney';
           }
         }
       } catch (err) {}
@@ -800,7 +829,9 @@ app.get('/market/gold', async (req, res) => {
       success: true,
       raw: londonGoldRaw,
       oilRaw: crudeOilRaw,
-      shGoldRaw
+      shGoldRaw,
+      shGoldTimestamp,
+      shGoldSource
     });
   } catch (err) {
     console.error('Gold proxy error:', err.message);
