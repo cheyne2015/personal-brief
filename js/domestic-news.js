@@ -100,7 +100,7 @@ function initChengduLocal(forceRefresh) {
     });
     html += '</div>';
     container.innerHTML = html;
-    if (sourceLabel) sourceLabel.textContent = '成都本地生活 & 新闻 TOP ' + Math.min(8, data.items.length) + ' · ' + (data.sources || []).join(' . ');
+    if (sourceLabel) sourceLabel.textContent = '活动 · 美食 · 出行 · 市民热点 TOP ' + Math.min(8, data.items.length) + ' · ' + (data.sources || []).join(' . ');
     if (badge) {
       var fetched = new Date(data.fetchedAt || Date.now());
       var stamp = ('0' + fetched.getHours()).slice(-2) + ':' + ('0' + fetched.getMinutes()).slice(-2);
@@ -110,7 +110,7 @@ function initChengduLocal(forceRefresh) {
     return { tag:'chengdu', ok:true };
   }).catch(function(error) {
     console.error('Chengdu local failed:', error);
-    container.innerHTML = '<div class="empty-section" style="padding:30px;">成都本地生活与新闻暂时无法获取，请稍后刷新</div>';
+    container.innerHTML = '<div class="empty-section" style="padding:30px;">成都活动、美食、出行与市民热点暂时无法获取，请稍后刷新</div>';
     if (badge) {
       badge.className = 'freshness-badge snapshot';
       badge.innerHTML = '<span class="freshness-dot"></span>OFFLINE';

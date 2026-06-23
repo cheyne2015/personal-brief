@@ -758,17 +758,20 @@ app.get('/domestic-hot', async (req, res) => {
 function classifyChengduLocal(title, summary) {
   const text = `${title || ''} ${summary || ''}`;
   const groups = [
-    { category:'城市民生', terms:['成都','双流','天府新区','高新区','锦江','青羊','金牛','武侯','成华','龙泉驿','温江','郫都','新都','简阳','居民','社区','医院','学校','教育','医保','社保','住房','租房','房价','就业','招聘','养老','消费','补贴','服务'] },
-    { category:'交通出行', terms:['成都','双流机场','天府机场','地铁','公交','高铁','铁路','交通','道路','绕城','成渝','航线','通车','施工','限行','停车','出行'] },
-    { category:'生活消费', terms:['成都','消费券','商圈','餐饮','文旅','演出','展会','夜经济','以旧换新','家电','汽车','购物','市场监管','食品安全','价格','便民'] },
-    { category:'产业机会', terms:['成都','项目','签约','招商','创业','人才','补贴','园区','产业','低空经济','人工智能','算力','半导体','新能源汽车','生物医药','跨境电商','小微企业','贷款','税费'] },
-    { category:'政务政策', terms:['成都','成都市','四川','政策','发布','通知','新规','规划','住建','发改委','人社','商务局','教育局','公安','政务','办事'] },
-    { category:'天气安全', terms:['成都','暴雨','高温','预警','雷电','大风','内涝','防汛','地灾','安全','事故','消防','应急'] }
+    { category:'活动展演', weight:9, terms:['活动','展会','展览','演出','音乐节','艺术节','戏剧','剧场','剧院','博物馆','美术馆','市集','集市','赛事','马拉松','露营','亲子','周末','端午','暑期','夜游','灯会','嘉年华','文旅','非遗','开幕','预约'] },
+    { category:'市民热点', weight:8, terms:['市民','热议','网友','本地人','街头','社区','生活','娱乐','文娱','电影','影院','演唱会','脱口秀','剧本杀','livehouse','音乐现场','体育赛事','球赛','看展','打卡','商场','公园','夜生活','热门','上新'] },
+    { category:'美食消费', weight:8, terms:['美食','餐饮','火锅','小吃','川菜','咖啡','茶馆','夜市','夜经济','消费券','商圈','购物','门店','新店','打卡','外卖','市场','食品','价格','优惠','促销','以旧换新'] },
+    { category:'出行交通', weight:8, terms:['双流机场','天府机场','机场','航空','口岸','出入境','地铁','公交','高铁','铁路','交通','道路','绕城','成渝','航线','通车','施工','限行','停车','出行','周末出行','客流','换乘','开行','加开'] },
+    { category:'生活服务', weight:4, terms:['成都','双流','天府新区','高新区','锦江','青羊','金牛','武侯','成华','龙泉驿','温江','郫都','新都','简阳','居民','社区','医院','学校','教育','医保','社保','住房','租房','就业','服务','便民'] },
+    { category:'天气安全', weight:3, terms:['成都','暴雨','高温','预警','雷电','大风','内涝','防汛','地灾','安全','事故','消防','应急'] },
+    { category:'城市机会', weight:2, terms:['成都','项目','签约','招商','创业','人才','补贴','园区','产业','招聘','小微企业','贷款','税费'] },
+    { category:'政务信息', weight:1, terms:['成都','成都市','四川','政策','发布','通知','新规','规划','政务','办事'] }
   ];
   let best = null;
   groups.forEach(group => {
     const hits = group.terms.filter(term => text.includes(term)).length;
-    if (hits && (!best || hits > best.score)) best = { category:group.category, score:hits };
+    const score = hits * group.weight;
+    if (hits && (!best || score > best.score)) best = { category:group.category, score };
   });
   return best || { category:'成都生活', score:1 };
 }
@@ -789,7 +792,7 @@ function parseChengduRss(xml, source) {
     const summary = read('description');
     const text = `${title} ${summary}`;
     if (!/成都|双流|天府新区|高新区|锦江|青羊|金牛|武侯|成华|龙泉驿|温江|郫都|新都|简阳|四川/.test(text)) continue;
-    if (/明星|演唱会门票黄牛|网红打卡|旅游攻略|美食推荐/.test(text) && !/政策|消费|交通|安全|民生|补贴|市场/.test(text)) continue;
+    if (/明星绯闻|恋情|塌房|饭圈|门票黄牛|旅游攻略/.test(text) && !/成都|活动|演出|展览|美食|消费|交通|出行|娱乐|市民|热议|文旅/.test(text)) continue;
     const importance = classifyChengduLocal(title, summary);
     items.push({
       title,
@@ -816,7 +819,7 @@ function parseChengduHtml(html, source, baseUrl) {
     if (!title || title.length < 8 || title.length > 90) continue;
     if (!/成都|双流|天府新区|高新区|锦江|青羊|金牛|武侯|成华|龙泉驿|温江|郫都|新都|简阳|四川/.test(title)) continue;
     if (/首页|频道|更多|登录|注册|客户端|二维码|专题|图片|视频|直播|广告/.test(title)) continue;
-    if (/明星|网红打卡|旅游攻略|美食推荐/.test(title) && !/政策|消费|交通|安全|民生|补贴|市场|产业/.test(title)) continue;
+    if (/明星绯闻|恋情|塌房|饭圈|门票黄牛|旅游攻略/.test(title) && !/成都|活动|演出|展览|美食|消费|交通|出行|娱乐|市民|热议|文旅/.test(title)) continue;
     if (seen.has(title)) continue;
     seen.add(title);
     try {
@@ -846,14 +849,14 @@ async function fetchChengduLocalEvents() {
     'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.6'
   };
   const feeds = [
-    { source:'成都民生', url:'https://news.google.com/rss/search?q=%E6%88%90%E9%83%BD%20%E6%B0%91%E7%94%9F%20when:14d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans' },
+    { source:'成都活动', url:'https://news.google.com/rss/search?q=%E6%88%90%E9%83%BD%20(%E6%B4%BB%E5%8A%A8%20OR%20%E6%BC%94%E5%87%BA%20OR%20%E5%B1%95%E8%A7%88%20OR%20%E5%B8%82%E9%9B%86%20OR%20%E9%9F%B3%E4%B9%90%E8%8A%82)%20when:14d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans' },
+    { source:'成都美食', url:'https://news.google.com/rss/search?q=%E6%88%90%E9%83%BD%20(%E7%BE%8E%E9%A3%9F%20OR%20%E9%A4%90%E9%A5%AE%20OR%20%E7%81%AB%E9%94%85%20OR%20%E5%B0%8F%E5%90%83%20OR%20%E5%95%86%E5%9C%88)%20when:14d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans' },
     { source:'成都交通', url:'https://news.google.com/rss/search?q=%E6%88%90%E9%83%BD%20%E4%BA%A4%E9%80%9A%20when:14d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans' },
-    { source:'成都消费', url:'https://news.google.com/rss/search?q=%E6%88%90%E9%83%BD%20%E6%B6%88%E8%B4%B9%20%E6%94%BF%E7%AD%96%20when:14d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans' },
-    { source:'成都机会', url:'https://news.google.com/rss/search?q=%E6%88%90%E9%83%BD%20%E4%BA%A7%E4%B8%9A%20%E6%8B%9B%E8%81%98%20%E5%88%9B%E4%B8%9A%20when:14d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans' },
-    { source:'成都安全', url:'https://news.google.com/rss/search?q=%E6%88%90%E9%83%BD%20%E5%A4%A9%E6%B0%94%20%E5%AE%89%E5%85%A8%20when:14d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans' },
-    { source:'Bing成都民生', url:'https://www.bing.com/news/search?q=%E6%88%90%E9%83%BD%20%E6%B0%91%E7%94%9F&format=rss' },
+    { source:'成都热点', url:'https://news.google.com/rss/search?q=%E6%88%90%E9%83%BD%20(%E5%B8%82%E6%B0%91%20OR%20%E7%83%AD%E8%AE%AE%20OR%20%E5%A8%B1%E4%B9%90%20OR%20%E6%96%87%E5%A8%B1%20OR%20%E5%A4%9C%E7%94%9F%E6%B4%BB)%20when:14d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans' },
+    { source:'Bing成都活动', url:'https://www.bing.com/news/search?q=%E6%88%90%E9%83%BD%20%E6%B4%BB%E5%8A%A8%20%E6%BC%94%E5%87%BA%20%E5%B1%95%E8%A7%88&format=rss' },
+    { source:'Bing成都美食', url:'https://www.bing.com/news/search?q=%E6%88%90%E9%83%BD%20%E7%BE%8E%E9%A3%9F%20%E9%A4%90%E9%A5%AE%20%E5%95%86%E5%9C%88&format=rss' },
     { source:'Bing成都交通', url:'https://www.bing.com/news/search?q=%E6%88%90%E9%83%BD%20%E4%BA%A4%E9%80%9A&format=rss' },
-    { source:'Bing成都生活', url:'https://www.bing.com/news/search?q=%E6%88%90%E9%83%BD%20%E7%94%9F%E6%B4%BB%20%E6%B6%88%E8%B4%B9&format=rss' }
+    { source:'Bing成都热点', url:'https://www.bing.com/news/search?q=%E6%88%90%E9%83%BD%20%E5%B8%82%E6%B0%91%20%E7%83%AD%E8%AE%AE%20%E5%A8%B1%E4%B9%90&format=rss' }
   ];
   const htmlPages = [
     { source:'新华网成都', url:'https://sc.news.cn/cd/' },
@@ -906,8 +909,18 @@ async function fetchChengduLocalEvents() {
       }
     });
   });
+  function localPriority(item) {
+    const category = item.category || '';
+    if (category === '活动展演') return 80;
+    if (category === '美食消费') return 75;
+    if (category === '出行交通') return 70;
+    if (category === '市民热点') return 68;
+    if (category === '生活服务') return 35;
+    if (category === '天气安全') return 25;
+    return 10;
+  }
   const items = Array.from(grouped.values())
-    .sort((a, b) => (b.sources.length - a.sources.length) || (b.score - a.score) || (Date.parse(b.publishedAt) - Date.parse(a.publishedAt)))
+    .sort((a, b) => (localPriority(b) - localPriority(a)) || (b.sources.length - a.sources.length) || (b.score - a.score) || (Date.parse(b.publishedAt) - Date.parse(a.publishedAt)))
     .slice(0, 8)
     .map((item, index) => ({
       rank:index + 1,
