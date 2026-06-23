@@ -6,6 +6,7 @@ const { execFile } = require('child_process');
 const root = __dirname;
 const port = Number(process.env.PREVIEW_PORT || 8080);
 const liveOrigin = process.env.LIVE_ORIGIN || 'https://brief.0cy.top';
+const localLlmOrigin = process.env.LOCAL_LLM_ORIGIN || 'http://127.0.0.1:3000';
 
 const contentTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -51,29 +52,54 @@ function sendFile(res, filePath) {
   });
 }
 
+async function sendProxyRequest(req, res, target, chunks, proxyLabel) {
+  const upstream = await fetch(target, {
+    method: req.method,
+    headers: {
+      'content-type': req.headers['content-type'] || 'application/json',
+      'user-agent': 'local-preview-server',
+      'x-brief-local-preview': '1'
+    },
+    body: chunks.length ? Buffer.concat(chunks) : undefined
+  });
+  const body = Buffer.from(await upstream.arrayBuffer());
+  res.writeHead(upstream.status, {
+    'Content-Type': upstream.headers.get('content-type') || 'application/octet-stream',
+    'Cache-Control': 'no-store',
+    'X-Preview-Proxy': proxyLabel || 'unknown'
+  });
+  res.end(body);
+}
+
 async function proxyToLive(req, res) {
   const target = new URL(req.url, liveOrigin);
   const chunks = [];
   req.on('data', chunk => chunks.push(chunk));
   req.on('end', async () => {
     try {
-      const upstream = await fetch(target, {
-        method: req.method,
-        headers: {
-          'content-type': req.headers['content-type'] || 'application/json',
-          'user-agent': 'local-preview-server'
-        },
-        body: chunks.length ? Buffer.concat(chunks) : undefined
-      });
-      const body = Buffer.from(await upstream.arrayBuffer());
-      res.writeHead(upstream.status, {
-        'Content-Type': upstream.headers.get('content-type') || 'application/octet-stream',
-        'Cache-Control': 'no-store'
-      });
-      res.end(body);
+      await sendProxyRequest(req, res, target, chunks, 'live');
     } catch (err) {
       res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+  });
+}
+
+async function proxyToLocalLlm(req, res) {
+  const target = new URL(req.url.replace(/^\/api\/llm\//, '/'), localLlmOrigin);
+  const chunks = [];
+  req.on('data', chunk => chunks.push(chunk));
+  req.on('end', async () => {
+    try {
+      await sendProxyRequest(req, res, target, chunks, 'local-llm');
+    } catch (err) {
+      // Keep preview usable when the local LLM service is not running.
+      try {
+        await sendProxyRequest(req, res, new URL(req.url, liveOrigin), chunks, 'live-fallback');
+      } catch (fallbackErr) {
+        res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: fallbackErr.message, localError: err.message }));
+      }
     }
   });
 }
@@ -335,9 +361,9 @@ async function serveGoldMarket(res) {
 }
 
 const MARKET_HISTORY_SYMBOLS = {
-  shanghai: { yahoo:'000001.SS', name:'上证指数', currency:'CNY' },
-  nasdaq: { yahoo:'^IXIC', name:'纳斯达克', currency:'USD' },
-  gold: { yahoo:'GC=F', name:'COMEX黄金', currency:'USD/oz' }
+  shanghai: { tencent:'sh000001', responseKey:'sh000001', name:'上证指数', currency:'CNY' },
+  nasdaq: { tencent:'usIXIC', responseKey:'us.IXIC', name:'纳斯达克', currency:'USD' },
+  gold: { sina:'GC', name:'COMEX黄金', currency:'USD/oz' }
 };
 const marketHistoryCache = new Map();
 
@@ -353,15 +379,24 @@ async function serveMarketHistory(req, res) {
       res.end(JSON.stringify({ ...cached.payload, cached:true }));
       return;
     }
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(config.yahoo)}?range=2mo&interval=1d&events=history`;
-    const response = await fetch(url, { headers:{ 'User-Agent':'Mozilla/5.0', 'Accept':'application/json' } });
-    if (!response.ok) throw new Error(`History upstream HTTP ${response.status}`);
-    const json = await response.json();
-    const result = json && json.chart && json.chart.result && json.chart.result[0];
-    const timestamps = result && result.timestamp || [];
-    const closes = result && result.indicators && result.indicators.quote && result.indicators.quote[0] && result.indicators.quote[0].close || [];
-    const points = timestamps.map((timestamp, index) => ({ date:new Date(timestamp * 1000).toISOString().slice(0, 10), close:Number(closes[index]) }))
-      .filter(point => Number.isFinite(point.close)).slice(-30);
+    let points = [];
+    if (config.tencent) {
+      const url = `https://web.ifzq.gtimg.cn/appstock/app/kline/kline?param=${config.tencent},day,,,35`;
+      const text = await fetchTextWithCurl(url, ['User-Agent: Mozilla/5.0', 'Accept: application/json']);
+      const json = JSON.parse(text);
+      const rows = json && json.data && json.data[config.responseKey] ? json.data[config.responseKey].day || [] : [];
+      points = rows.map(row => ({ date:String(row[0] || ''), close:Number(row[2]) }));
+    } else if (config.sina) {
+      const url = `https://stock2.finance.sina.com.cn/futures/api/jsonp.php/var_${config.sina}=/GlobalFuturesService.getGlobalFuturesDailyKLine?symbol=${config.sina}`;
+      const text = await fetchTextWithCurl(url, ['Referer: https://finance.sina.com.cn/', 'User-Agent: Mozilla/5.0']);
+      const start = text.indexOf(`var_${config.sina}=(`);
+      const end = text.lastIndexOf(');');
+      if (start >= 0 && end > start) {
+        const rows = JSON.parse(text.slice(start + `var_${config.sina}=(`.length, end));
+        points = rows.map(row => ({ date:String(row.date || ''), close:Number(row.close) }));
+      }
+    }
+    points = points.filter(point => /^\d{4}-\d{2}-\d{2}$/.test(point.date) && Number.isFinite(point.close)).slice(-30);
     if (points.length < 2) throw new Error('Insufficient history data');
     const payload = { success:true, symbol:symbolKey, name:config.name, currency:config.currency, fetchedAt:new Date().toISOString(), points };
     marketHistoryCache.set(symbolKey, { savedAt:Date.now(), payload });
@@ -382,11 +417,25 @@ async function serveRssProxy(req, res) {
     const allowedHosts = ['actually-relevant-api.onrender.com', 'news.google.com'];
     const allowed = target.protocol === 'https:' && allowedHosts.some(host => target.hostname === host || target.hostname.endsWith('.' + host));
     if (!allowed) throw new Error('RSS host is not allowed');
-    const upstream = await fetch(target.href, {
-      headers: { 'User-Agent': 'local-preview-server' }
-    });
-    if (!upstream.ok) throw new Error(`RSS upstream error: ${upstream.status}`);
-    const text = await upstream.text();
+    let text = '';
+    try {
+      text = await fetchTextWithCurl(target.href, [
+        'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36',
+        'Accept: application/rss+xml, application/xml, text/xml, */*',
+        'Accept-Language: en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7'
+      ]);
+    } catch (curlError) {
+      const upstream = await fetch(target.href, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36',
+          'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+          'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7'
+        }
+      });
+      if (!upstream.ok) throw new Error(`RSS upstream error: ${upstream.status}`);
+      text = await upstream.text();
+    }
+    if (!text || text.indexOf('<item') < 0) throw new Error('RSS upstream returned no items');
     res.writeHead(200, {
       'Content-Type': 'application/xml; charset=utf-8',
       'Cache-Control': 'no-store'
@@ -458,7 +507,11 @@ const server = http.createServer((req, res) => {
       serveDomesticHot(req, res);
       return;
     }
-    proxyToLive(req, res);
+    if (urlPath.startsWith('/api/llm/')) {
+      proxyToLocalLlm(req, res);
+    } else {
+      proxyToLive(req, res);
+    }
     return;
   }
 
@@ -478,5 +531,6 @@ const server = http.createServer((req, res) => {
 
 server.listen(port, '127.0.0.1', () => {
   console.log(`Local preview: http://127.0.0.1:${port}/`);
+  console.log(`Local LLM target: ${localLlmOrigin}`);
   console.log(`Proxy target: ${liveOrigin}`);
 });

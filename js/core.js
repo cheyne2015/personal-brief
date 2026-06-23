@@ -4,9 +4,11 @@ var STORAGE_KEY = '_brief_snapshot';
 var PENDING_KEY  = '_brief_pending_compare';
 var THEME_KEY    = '_brief_theme';
 var AI_CACHE_KEY = '_brief_ai_cache';
-var AI_CACHE_VERSION = 10; // bump when HTML structure or sanitization changes
+var AI_CACHE_VERSION = 16; // bump when HTML structure, prompts or sanitization changes
+var DAILY_AUTO_REFRESH_KEY = '_brief_daily_auto_refresh';
 
 var forceRefresh = false; // set true by refresh button to skip cache
+var autoAIRefresh = false; // once per device per day, set by initAutoLoad
 
 function getAICache() {
   try { return JSON.parse(localStorage.getItem(AI_CACHE_KEY)) || {}; }
@@ -33,6 +35,23 @@ function clearAICache() {
   catch(e) {}
   forceRefresh = true; // ensure this session also re-fetches
 }
+function shouldBypassAICache() {
+  return forceRefresh || autoAIRefresh;
+}
+function shouldRunDailyAutoRefresh() {
+  var today = todayStr();
+  try {
+    if (localStorage.getItem(DAILY_AUTO_REFRESH_KEY) === today) return false;
+    localStorage.setItem(DAILY_AUTO_REFRESH_KEY, today);
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+function finishDailyAutoRefreshSoon() {
+  if (!autoAIRefresh) return;
+  setTimeout(function() { autoAIRefresh = false; }, 60000);
+}
 function hashStr(s) {
   // djb2 hash — fast, good enough for cache keys
   var h = 5381;
@@ -44,6 +63,29 @@ function hashStr(s) {
 function todayStr() {
   var d = new Date();
   return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
+}
+
+function isSameLocalDate(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function formatBriefTimestamp(value) {
+  if (!value && value !== 0) return '';
+  var d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return String(value || '');
+  var now = new Date();
+  if (isSameLocalDate(d, now)) {
+    var diffMin = Math.max(0, Math.floor((now - d) / 60000));
+    if (diffMin < 1) return '刚刚';
+    if (diffMin < 60) return diffMin + ' 分钟前';
+    return Math.floor(diffMin / 60) + ' 小时前';
+  }
+  var prefix = d.getFullYear() === now.getFullYear() ? '' : d.getFullYear() + '年';
+  return prefix + (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+}
+
+function buildAITimestamp(value, label) {
+  return '<span class="ai-generated-time">' + escapeHtml(label || 'AI') + ' · ' + escapeHtml(formatBriefTimestamp(value || Date.now())) + '</span>';
 }
 
 /* ===== API Data Cache (network-first, cache-fallback) ===== */
@@ -68,6 +110,63 @@ window.toggleSubSection = function(id) {
   if (!sec) return;
   sec.classList.toggle('collapsed');
 };
+
+function initCollapsibleHeadings() {
+  document.querySelectorAll('.major-section > .major-header').forEach(function(header) {
+    if (header.dataset.collapseReady === '1') return;
+    header.dataset.collapseReady = '1';
+    header.classList.add('collapsible');
+    header.setAttribute('role', 'button');
+    header.setAttribute('tabindex', '0');
+    header.setAttribute('aria-expanded', 'true');
+    var section = header.closest('.major-section');
+    function toggle() {
+      if (!section) return;
+      var collapsed = section.classList.toggle('collapsed');
+      header.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    }
+    header.addEventListener('click', function(event) {
+      if (event.target.closest('a,button,input,select,textarea')) return;
+      toggle();
+    });
+    header.addEventListener('keydown', function(event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        toggle();
+      }
+    });
+  });
+
+  document.querySelectorAll('.finance-card > .fin-label').forEach(function(label) {
+    if (label.dataset.collapseReady === '1') return;
+    label.dataset.collapseReady = '1';
+    label.classList.add('collapsible');
+    label.setAttribute('role', 'button');
+    label.setAttribute('tabindex', '0');
+    label.setAttribute('aria-expanded', 'true');
+    var card = label.closest('.finance-card');
+    function toggle() {
+      if (!card) return;
+      var collapsed = card.classList.toggle('collapsed');
+      label.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    }
+    label.addEventListener('click', toggle);
+    label.addEventListener('keydown', function(event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        toggle();
+      }
+    });
+  });
+
+  document.addEventListener('click', function(event) {
+    var dynamicHeader = event.target.closest('.analysis-card .an-title, .my-focus-title, .arena-summary-head');
+    if (!dynamicHeader) return;
+    if (event.target.closest('a,button,input,select,textarea')) return;
+    var box = dynamicHeader.closest('.analysis-card, .my-focus-section, .arena-summary');
+    if (box) box.classList.toggle('collapsed');
+  });
+}
 
 /* ===== Theme Toggle ===== */
 var themeToggle = document.getElementById('themeToggle');
@@ -530,6 +629,8 @@ function closeDiff() {
 }
 
 /* ===== On Page Load: check for pending comparison ===== */
+initCollapsibleHeadings();
+
 var pending = sessionStorage.getItem(PENDING_KEY);
 if (pending) {
   sessionStorage.removeItem(PENDING_KEY);
@@ -548,4 +649,3 @@ if (pending) {
   var initSnap = buildSnapshot();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(initSnap));
 }
-

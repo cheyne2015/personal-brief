@@ -55,6 +55,10 @@ async function waitUntilReady() {
     assert(domestic.items.every(item => item.title && item.summary), 'Domestic item missing title or summary');
     assert(domestic.items.some(item => item.publishedAt), 'Domestic media publication timestamps are missing');
 
+    const chengdu = await (await request('/api/llm/chengdu-local?refresh=1')).json();
+    assert(chengdu.success && chengdu.items.length > 0 && chengdu.items.length <= 8, 'Chengdu local news is unavailable');
+    assert(chengdu.items.every(item => item.title && item.summary), 'Chengdu local item missing title or summary');
+
     for (const symbol of ['shanghai', 'nasdaq', 'gold']) {
       const history = await (await request(`/api/llm/market/history?symbol=${symbol}&refresh=1`)).json();
       assert(history.success && history.points.length === 30, `${symbol} history should contain 30 points`);

@@ -144,8 +144,8 @@ function renderArena(payload) {
   cnModels.sort(function(a,b){ return parseFloat(b.score) - parseFloat(a.score); });
   cnModels = cnModels.slice(0, 8);
 
-  function buildArenaCNSummaryHtml(aiLines) {
-    var html = '<div class="arena-summary-head"><span class="arena-summary-title">CN 国产模型动态</span><span class="arena-summary-tag">AI 总结</span></div>';
+  function buildArenaCNSummaryHtml(aiLines, generatedAt) {
+    var html = '<div class="arena-summary-head"><span class="arena-summary-title">CN 国产模型动态</span><span class="arena-summary-tag">AI 总结</span>' + buildAITimestamp(generatedAt || Date.now()) + '</div>';
     html += '<div class="arena-cn-models">';
     cnModels.forEach(function(m) {
       html += '<div class="arena-cn-model">';
@@ -180,7 +180,7 @@ function renderArena(payload) {
   if (cnModels.length) {
     var checkArenaCommentCache = getCachedAIEntry('arena_comment');
     var arenaHash = hashStr('cn-summary-v2|' + cnModels.map(function(m){return m.model+m.rank+m.score+m.category;}).join('|'));
-    if (!forceRefresh && checkArenaCommentCache && checkArenaCommentCache.hash === arenaHash) {
+    if (!shouldBypassAICache() && checkArenaCommentCache && checkArenaCommentCache.hash === arenaHash) {
       sumDiv.innerHTML = checkArenaCommentCache.html;
     } else {
       fetch('/api/llm/arena-comment', {
@@ -195,18 +195,18 @@ function renderArena(payload) {
       }).then(function(r) { return r.json(); }).then(function(result) {
         if (result.success) {
           var lines = result.comment.split('\n').filter(function(l) { return l.trim(); });
-          var shtml = buildArenaCNSummaryHtml(lines);
+          var generatedAt = Date.now();
+          var shtml = buildArenaCNSummaryHtml(lines, generatedAt);
           sumDiv.innerHTML = shtml;
-          setAICache({ arena_comment: { hash: arenaHash, html: shtml, timestamp: Date.now() } });
+          setAICache({ arena_comment: { hash: arenaHash, html: shtml, timestamp: generatedAt } });
         } else {
-          sumDiv.innerHTML = buildArenaCNSummaryHtml(['AI 总结暂不可用']);
+          sumDiv.innerHTML = buildArenaCNSummaryHtml(['AI 总结暂不可用'], Date.now());
         }
       }).catch(function() {
-        sumDiv.innerHTML = buildArenaCNSummaryHtml(['AI 总结加载失败']);
+        sumDiv.innerHTML = buildArenaCNSummaryHtml(['AI 总结加载失败'], Date.now());
       });
     }
   } else {
     sumDiv.innerHTML = '<div class="arena-summary-head"><span class="arena-summary-title">CN 国产模型动态</span></div><p style="color:var(--text-dim);padding:8px 0;">本期暂无国产模型进入前十排名</p>';
   }
 }
-

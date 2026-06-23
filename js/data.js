@@ -371,26 +371,11 @@ function renderWeatherCards(daily, seniverseData, openMeteoHourly) {
 
 /* ===== AI News Fetch & Render ===== */
 function timeAgo(isoStr) {
-  var pub = new Date(isoStr), now = new Date();
-  var diffMin = Math.floor((now - pub) / 60000);
-  if (diffMin < 60) return diffMin + ' 分钟前';
-  if (diffMin < 1440) return Math.floor(diffMin / 60) + ' 小时前';
-  return Math.floor(diffMin / 1440) + ' 天前';
+  return formatBriefTimestamp(isoStr);
 }
 
 function fmtPubDate(dateStr) {
-  if (!dateStr) return '';
-  var d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
-  var now = new Date();
-  var diffMs = now - d;
-  var diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 60) return diffMin + ' 分钟前';
-  if (diffMin < 1440) return Math.floor(diffMin / 60) + ' 小时前';
-  var diffDay = Math.floor(diffMin / 1440);
-  if (diffDay < 7) return diffDay + ' 天前';
-  var mo = d.getMonth()+1, da = d.getDate(), hr = d.getHours(), mi = d.getMinutes();
-  return mo + '月' + da + '日 ' + ('0'+hr).slice(-2) + ':' + ('0'+mi).slice(-2);
+  return formatBriefTimestamp(dateStr);
 }
 
 function sourceIcon(source) {
@@ -405,6 +390,7 @@ function renderAINews(items) {
   var container = document.getElementById('aiNewsContainer');
   var countEl = document.getElementById('aiNewsCount');
   if (!container) return;
+  window._aiNewsItems = Array.isArray(items) ? items.slice(0, 12) : [];
 
   if (!items || !items.length) {
     container.innerHTML = '<div class="empty-section" style="padding:40px;">📭 暂无 AI 资讯，请稍后刷新</div>';
@@ -443,7 +429,7 @@ function renderAINews(items) {
     }
 
     html += '<div class="sub-section" id="' + key + '">';
-    html += '<div class="sub-header"><h3>' + cat.icon + ' ' + cat.title + '</h3><span class="sub-count">' + count + ' 条</span></div>';
+    html += '<div class="sub-header collapsible" onclick="toggleSubSection(\'' + key + '\')"><h3>' + cat.icon + ' ' + cat.title + '</h3><span class="sub-count">' + count + ' 条</span></div>';
     html += '<div class="cards-grid">';
 
     cat.items.forEach(function(item) {
@@ -519,6 +505,10 @@ btn.addEventListener('click', function() {
           }
           return { tag:'world', ok:false };
         });
+    })(),
+    (function() {
+      if (typeof window.refreshChengduLocal !== 'function') return Promise.resolve({ tag:'chengdu', ok:false });
+      return window.refreshChengduLocal(true);
     })(),
     (function() {
       if (typeof window.refreshDomesticHot !== 'function') return Promise.resolve({ tag:'domestic', ok:false });
@@ -603,6 +593,10 @@ btn.addEventListener('click', function() {
       if(r.tag==='domestic'){
         ok++;
       }
+
+      if(r.tag==='chengdu'){
+        ok++;
+      }
     });
 
     updateFinanceTimestamps({ sh:marketQuoteTimes.sh, us:marketQuoteTimes.us, gold:marketQuoteTimes.gold });
@@ -629,6 +623,11 @@ btn.addEventListener('click', function() {
 
 // Auto-run on DOM ready — network-first, cache-fallback for all API data
 function initAutoLoad() {
+  autoAIRefresh = shouldRunDailyAutoRefresh();
+  if (autoAIRefresh) {
+    console.info('Daily first-open refresh: bypassing AI cache once for this device.');
+  }
+
   // ===== Weather: 心知天气(当前+日预报) + Open-Meteo(daily+hourly) =====
   var openMeteoDaily = 'https://api.open-meteo.com/v1/forecast?latitude=30.5728&longitude=104.0668&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,wind_speed_10m_max&hourly=temperature_2m,precipitation_probability,weathercode,windspeed_10m&timezone=Asia/Shanghai&forecast_days=3';
   var seniverseProxy = '/api/llm/weather-now';
@@ -778,6 +777,8 @@ function initAutoLoad() {
       renderFinanceDataUnavailable();
     }
   });
+
+  finishDailyAutoRefreshSoon();
 }
 
 // Run as soon as DOM is ready
@@ -786,4 +787,3 @@ if (document.readyState === 'loading') {
 } else {
   initAutoLoad();
 }
-

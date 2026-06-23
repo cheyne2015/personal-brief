@@ -52,66 +52,245 @@ function renderFinanceAnalysis(shCur, shPrev, goldCur, goldPrev, nxCur, nxPrev) 
     }
   }
 
-  // Compute data hash to detect changes
-  var dataHash = hashStr([shCur, shPrev, goldCur, goldPrev, nxCur||0, nxPrev||0].join('|'));
-  var finCached = getCachedAIEntry('finance');
-
-  // ===== CACHE HIT: render cached AI directly =====
-  if (finCached && finCached.hash === dataHash && finCached.aiHtml) {
-    el.innerHTML = finCached.aiHtml;
-    if (finBadge) { finBadge.className = 'freshness-badge live'; finBadge.innerHTML = '<span class="freshness-dot"></span>AI 已更新 (缓存)'; }
-    return;
-  }
-
-  // ===== IMMEDIATE: render static analysis =====
+  // ===== IMMEDIATE: render static analysis while dedicated market news loads =====
   renderStaticFinanceAnalysis(shCur, shPrev, goldCur, goldPrev, nxCur, nxPrev);
   if (finBadge) { finBadge.className = 'freshness-badge updating'; finBadge.innerHTML = '<span class="freshness-dot"></span>AI 分析中…'; }
 
-  // ===== BACKGROUND: upgrade to AI analysis (with 30s timeout) =====
-  var controller = new AbortController();
-  var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
+  loadFinanceNewsContext(shouldBypassAICache()).then(function() {
+    var financeContext = collectFinanceContext();
+    // Compute data hash to detect quote and dedicated market-news changes.
+    var dataHash = hashStr([shCur, shPrev, goldCur, goldPrev, nxCur||0, nxPrev||0, JSON.stringify(financeContext.marketNews || [])].join('|'));
+    var finCached = getCachedAIEntry('finance');
 
-  fetch('/api/llm/finance-analysis', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      shanghai: { cur: shCur, prev: shPrev },
-      gold: { cur: goldCur, prev: goldPrev },
-      nasdaq: { cur: nxCur || 0, prev: nxPrev || 0 }
-    }),
-    signal: controller.signal
-  }).then(function(response) {
-    clearTimeout(timeoutId);
-    if (response.status === 429) {
-      // Rate limit exceeded
-      return response.json().then(function(data) {
-        throw new Error('429: ' + (data.error || 'Rate limit exceeded'));
-      });
+    if (!shouldBypassAICache() && finCached && finCached.hash === dataHash && finCached.aiHtml) {
+      clearFinanceAnalysisSlots();
+      el.innerHTML = finCached.aiHtml;
+      syncFinanceAnalysisLayout();
+      if (finBadge) { finBadge.className = 'freshness-badge live'; finBadge.innerHTML = '<span class="freshness-dot"></span>AI 已更新 (缓存)'; }
+      return;
     }
-    if (!response.ok) throw new Error('API request failed');
-    return response.json();
-  }).then(function(data) {
-    if (!data.success) throw new Error(data.error);
-    var lines = data.analysis.split('\n').filter(function(l) { return l.trim(); });
-    var html = '<div class="market-analysis ai-just-arrived">';
-    html += '<div class="analysis-card animate-on-scroll visible"><div class="an-title">📊 走势分析（AI 生成）<span style="font-size:0.65em;color:var(--amber);margin-left:8px;">✨ AI 已更新</span></div><ul class="an-list">';
-    lines.forEach(function(line) {
-      var text = line.replace(/^[•·▪]/, '').trim();
-      if (text) html += '<li>' + escapeHtml(text) + '</li>';
+
+    // ===== BACKGROUND: upgrade to AI analysis (with 30s timeout) =====
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
+
+    return fetch('/api/llm/finance-analysis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shanghai: { cur: shCur, prev: shPrev },
+        gold: { cur: goldCur, prev: goldPrev },
+        nasdaq: { cur: nxCur || 0, prev: nxPrev || 0 },
+        context: financeContext
+      }),
+      signal: controller.signal
+    }).then(function(response) {
+      clearTimeout(timeoutId);
+      if (response.status === 429) {
+        return response.json().then(function(data) {
+          throw new Error('429: ' + (data.error || 'Rate limit exceeded'));
+        });
+      }
+      if (!response.ok) throw new Error('API request failed');
+      return response.json();
+    }).then(function(data) {
+      if (!data.success) throw new Error(data.error);
+      var lines = data.analysis.split('\n').filter(function(l) { return l.trim(); });
+      if (!financeAnalysisHasCausalDepth(lines)) {
+        throw new Error('AI finance analysis is too price-only');
+      }
+      var generatedAt = Date.now();
+      var html = buildFinanceAnalysisCards(data.analysis, true, generatedAt);
+      clearFinanceAnalysisSlots();
+      el.innerHTML = html;
+      syncFinanceAnalysisLayout();
+      setAICache({ finance: { hash: dataHash, aiHtml: html, timestamp: generatedAt } });
+      if (finBadge) { finBadge.className = 'freshness-badge live'; finBadge.innerHTML = '<span class="freshness-dot"></span>AI 已更新'; }
+    }).catch(function(error) {
+      clearTimeout(timeoutId);
+      console.error('AI finance analysis failed, keeping static:', error);
+      if (finBadge) { finBadge.className = 'freshness-badge snapshot'; finBadge.innerHTML = '<span class="freshness-dot"></span>静态数据'; }
+      if (error.message && error.message.indexOf('429') >= 0) {
+        showRateLimitMessage(el, '金融市场 AI 分析请求已达每日上限（10 次/天）');
+      }
     });
-    html += '</ul></div></div>';
-    el.innerHTML = html;
-    // Save to cache
-    setAICache({ finance: { hash: dataHash, aiHtml: html, timestamp: Date.now() } });
-    if (finBadge) { finBadge.className = 'freshness-badge live'; finBadge.innerHTML = '<span class="freshness-dot"></span>AI 已更新'; }
   }).catch(function(error) {
-    clearTimeout(timeoutId);
-    console.error('AI finance analysis failed, keeping static:', error);
-    if (finBadge) { finBadge.className = 'freshness-badge snapshot'; finBadge.innerHTML = '<span class="freshness-dot"></span>静态数据'; }
-    // Show rate limit error if 429
-    if (error.message && error.message.indexOf('429') >= 0) {
-      showRateLimitMessage(el, '金融市场 AI 分析请求已达每日上限（10 次/天）');
+    console.error('Finance news context failed:', error);
+    if (finBadge) { finBadge.className = 'freshness-badge snapshot'; finBadge.innerHTML = '<span class="freshness-dot"></span>市场新闻不足'; }
+  });
+}
+
+function parseFinanceAnalysisSections(rawText) {
+  var sections = [
+    { key:'cn', title:'中国市场', icon:'🇨🇳', cls:'cn-market', lines:[] },
+    { key:'us', title:'美股与科技', icon:'🇺🇸', cls:'us-market', lines:[] },
+    { key:'gold', title:'黄金与跨资产', icon:'🟡', cls:'gold-market', lines:[] }
+  ];
+  var map = { '中国市场':'cn', 'A股':'cn', 'CN MARKET':'cn', '美股与科技':'us', '美股':'us', '纳斯达克':'us', 'US MARKET':'us', '黄金与跨资产':'gold', '黄金':'gold', '贵金属':'gold' };
+  var current = sections[0];
+  String(rawText || '').split('\n').forEach(function(rawLine) {
+    var line = rawLine.trim();
+    if (!line) return;
+    var heading = line.replace(/^\[|\]$/g, '').replace(/^#+\s*/, '').trim();
+    Object.keys(map).some(function(label) {
+      if (heading.indexOf(label) >= 0) {
+        current = sections.find(function(section) { return section.key === map[label]; }) || current;
+        return true;
+      }
+      return false;
+    });
+    if (/^\[.*\]$/.test(line) || /^#+\s*/.test(line)) return;
+    var text = line.replace(/^[•·▪\-]\s*/, '').trim();
+    if (text) current.lines.push(text);
+  });
+  return sections;
+}
+
+function syncFinanceAnalysisLayout() {
+  var host = document.getElementById('marketAnalysis');
+  if (!host) return;
+  var deck = host.querySelector('.finance-analysis-grid');
+  if (!deck) return;
+  var isMobile = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+  ['cn', 'us', 'gold'].forEach(function(key) {
+    var card = document.querySelector('.finance-analysis-card[data-analysis-key="' + key + '"]');
+    var slot = document.querySelector('.finance-card-analysis-slot[data-analysis-key="' + key + '"]');
+    if (!card) return;
+    if (isMobile && slot) {
+      slot.appendChild(card);
+    } else {
+      deck.appendChild(card);
     }
+  });
+  deck.classList.toggle('mobile-attached', isMobile);
+}
+
+function clearFinanceAnalysisSlots() {
+  document.querySelectorAll('.finance-card-analysis-slot').forEach(function(slot) {
+    slot.innerHTML = '';
+  });
+}
+
+window.addEventListener('resize', function() {
+  clearTimeout(window.__financeAnalysisLayoutTimer);
+  window.__financeAnalysisLayoutTimer = setTimeout(syncFinanceAnalysisLayout, 120);
+});
+
+function buildFinanceAnalysisCards(rawText, isAI, generatedAt) {
+  var sections = parseFinanceAnalysisSections(rawText);
+  var html = '<div class="market-analysis finance-analysis-grid' + (isAI ? ' ai-just-arrived' : '') + '">';
+  sections.forEach(function(section) {
+    html += '<div class="analysis-card finance-analysis-card ' + section.cls + ' animate-on-scroll visible" data-analysis-key="' + section.key + '">';
+    html += '<div class="an-title">' + section.icon + ' ' + section.title + (isAI ? buildAITimestamp(generatedAt || Date.now()) : '') + '</div>';
+    html += '<ul class="an-list">';
+    (section.lines.length ? section.lines : ['暂无足够上下文形成可靠判断。']).slice(0, 3).forEach(function(line) {
+      html += '<li>' + escapeHtml(line) + '</li>';
+    });
+    html += '</ul></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function financeAnalysisHasCausalDepth(lines) {
+  var text = (lines || []).join(' ');
+  var causalHits = ['因为', '原因', '反映', '说明', '驱动', '可能', '更像', '确认', '风险偏好', '避险', '利率', '美元', '政策', '情绪', '预期', '上下文', '新闻', '科技', 'AI', '地缘', '能源', '制裁', '航运', '消费']
+    .filter(function(term) { return text.indexOf(term) >= 0; }).length;
+  var priceOnlyHits = ['当前', '昨收', '较昨日', '较昨收', '收报', '跌幅', '涨幅'].filter(function(term) { return text.indexOf(term) >= 0; }).length;
+  return causalHits >= 2 && priceOnlyHits <= 4;
+}
+
+function collectFinanceContext() {
+  var domestic = Array.isArray(window._domesticHotItems) ? window._domesticHotItems : [];
+  var world = Array.isArray(window._worldFocusItems) ? window._worldFocusItems :
+    (Array.isArray(window._worldHeadlines) ? window._worldHeadlines.map(function(title) { return { title:title }; }) : []);
+  var ai = Array.isArray(window._aiNewsItems) ? window._aiNewsItems : [];
+  var marketNews = Array.isArray(window._financeMarketNewsItems) ? window._financeMarketNewsItems : [];
+  return {
+    marketNews: marketNews.slice(0, 18),
+    domestic: domestic.slice(0, 10).map(function(item) {
+      return {
+        title: item.title || '',
+        summary: item.summary || '',
+        category: item.category || '',
+        time: item.publishedAt || ''
+      };
+    }),
+    world: world.slice(0, 16).map(function(item) {
+      return {
+        title: item.title || String(item || ''),
+        category: item.category || '',
+        time: item.pubDate || item.time || ''
+      };
+    }),
+    ai: ai.slice(0, 8).map(function(item) {
+      return { title:item.title || '', summary:item.summary || '', time:item.publishedAt || '' };
+    })
+  };
+}
+
+var FINANCE_RSS_SOURCES = [
+  { bucket:'中国市场', url:'https://news.google.com/rss/search?q=(China%20stocks%20OR%20A-shares%20OR%20Shanghai%20Composite%20OR%20CSI%20300%20OR%20China%20equity%20market)%20when:2d&hl=en-US&gl=US&ceid=US:en' },
+  { bucket:'美股与科技', url:'https://news.google.com/rss/search?q=(Nasdaq%20OR%20tech%20stocks%20OR%20AI%20stocks%20OR%20Nvidia%20OR%20Fed%20rates%20OR%20Treasury%20yields)%20when:2d&hl=en-US&gl=US&ceid=US:en' },
+  { bucket:'黄金与跨资产', url:'https://news.google.com/rss/search?q=(gold%20price%20OR%20gold%20futures%20OR%20US%20dollar%20OR%20Treasury%20yields%20OR%20safe%20haven%20OR%20oil%20prices)%20when:2d&hl=en-US&gl=US&ceid=US:en' }
+];
+
+function financeStripHtml(html) {
+  var div = document.createElement('div');
+  div.innerHTML = html || '';
+  return (div.textContent || div.innerText || '').replace(/\s+/g, ' ').trim();
+}
+
+function loadFinanceNewsContext(force) {
+  if (!force && Array.isArray(window._financeMarketNewsItems) && window._financeMarketNewsItems.length) {
+    return Promise.resolve(window._financeMarketNewsItems);
+  }
+  var cached = apiCacheGet('finance_market_news');
+  if (!force && cached && cached.data && Array.isArray(cached.data.items) && Date.now() - cached.ts < 15 * 60 * 1000) {
+    window._financeMarketNewsItems = cached.data.items;
+    return Promise.resolve(window._financeMarketNewsItems);
+  }
+  return Promise.all(FINANCE_RSS_SOURCES.map(function(source) {
+    return fetch('/api/llm/rss-proxy?url=' + encodeURIComponent(source.url))
+      .then(function(response) { if (!response.ok) throw new Error('Finance RSS HTTP ' + response.status); return response.text(); })
+      .then(function(xml) {
+        var doc = new DOMParser().parseFromString(xml, 'application/xml');
+        return Array.from(doc.querySelectorAll('item')).slice(0, 8).map(function(item) {
+          var title = item.querySelector('title');
+          var desc = item.querySelector('description');
+          var link = item.querySelector('link');
+          var pubDate = item.querySelector('pubDate');
+          var publisher = item.querySelector('source');
+          return {
+            bucket: source.bucket,
+            title: title ? title.textContent : '',
+            summary: financeStripHtml(desc ? desc.textContent : '').slice(0, 220),
+            url: link ? link.textContent : '',
+            time: pubDate ? pubDate.textContent : '',
+            source: publisher ? publisher.textContent : 'Google News'
+          };
+        }).filter(function(item) { return item.title; });
+      }).catch(function(error) {
+        console.warn('Finance RSS failed:', source.bucket, error.message);
+        return [];
+      });
+  })).then(function(groups) {
+    var seen = {};
+    var items = [];
+    groups.forEach(function(group) {
+      group.forEach(function(item) {
+        var key = item.title.toLowerCase().replace(/\s+-\s+[^-]+$/, '').replace(/\s+/g, ' ').trim();
+        if (seen[key]) return;
+        seen[key] = true;
+        items.push(item);
+      });
+    });
+    if (!items.length && cached && cached.data && Array.isArray(cached.data.items)) {
+      items = cached.data.items;
+    }
+    window._financeMarketNewsItems = items.slice(0, 24);
+    apiCacheSet('finance_market_news', { items: window._financeMarketNewsItems });
+    return window._financeMarketNewsItems;
   });
 }
 
@@ -119,18 +298,41 @@ function renderFinanceAnalysis(shCur, shPrev, goldCur, goldPrev, nxCur, nxPrev) 
 function renderStaticFinanceAnalysis(shCur, shPrev, goldCur, goldPrev, nxCur, nxPrev) {
   var el = document.getElementById('marketAnalysis'); 
   if (!el) return;
-  function movement(cur, prev, suffix) {
-    var pct = (cur - prev) / prev * 100;
-    return fmtVal(cur) + suffix + '，较前一交易日' + (pct >= 0 ? '上涨 ' : '下跌 ') + Math.abs(pct).toFixed(2) + '%';
+  function pct(cur, prev) {
+    return (cur - prev) / prev * 100;
   }
-  var html = '<div class="market-analysis">';
-  html += '<div class="analysis-card animate-on-scroll visible"><div class="an-title">📊 实时行情摘要</div><ul class="an-list">';
-  html += '<li>上证指数 ' + movement(shCur, shPrev, ' 点') + '</li>';
-  html += '<li>纳斯达克 ' + movement(nxCur, nxPrev, ' 点') + '</li>';
-  html += '<li>COMEX黄金 ' + movement(goldCur, goldPrev, ' 美元/盎司') + '</li>';
-  html += '<li>以上仅为价格变化描述，不对涨跌原因作无来源推断。</li></ul></div>';
-  html += '</div>';
-  el.innerHTML = html;
+  function direction(cur, prev) {
+    var p = pct(cur, prev);
+    if (Math.abs(p) < 0.1) return '接近平盘，方向信号不强';
+    return p > 0 ? '上涨 ' + Math.abs(p).toFixed(2) + '%' : '下跌 ' + Math.abs(p).toFixed(2) + '%';
+  }
+  function likelyReason(name, cur, prev, type) {
+    var p = pct(cur, prev);
+    if (Math.abs(p) < 0.1) return name + '接近平盘，更像是资金在等待新的宏观或政策信号，暂不宜过度解读单日波动。';
+    if (type === 'cn') return name + direction(cur, prev) + '，可能反映国内权益风险偏好变化，具体还需结合成交量、行业涨跌和政策消息确认。';
+    if (type === 'us') return name + direction(cur, prev) + '，通常与科技股风险偏好、利率预期和大型成长股表现有关，需继续看美债与美元走势。';
+    return name + direction(cur, prev) + '，可能对应避险需求、美元利率预期或通胀交易变化，单日价格不能直接归因到某一事件。';
+  }
+  function relation() {
+    var sh = pct(shCur, shPrev), nx = pct(nxCur, nxPrev), gold = pct(goldCur, goldPrev);
+    if (gold > 0.2 && (sh < 0 || nx < 0)) return '黄金强于股指，说明市场可能在增加避险或通胀对冲需求，风险资产承压信号更值得跟踪。';
+    if (gold < -0.2 && (sh > 0 || nx > 0)) return '股指强于黄金，更像风险偏好回升，但仍需看美元、利率和后续新闻验证。';
+    return '三类资产方向分化不强，当前更适合观察后续新闻与成交确认，避免仅凭单日涨跌下结论。';
+  }
+  var raw = [
+    '[中国市场]',
+    '• ' + likelyReason('上证指数', shCur, shPrev, 'cn'),
+    '• 国内热点与行业结构仍是判断 A 股原因的关键，当前静态判断只作为等待 AI 深度分析前的参考。',
+    '[美股与科技]',
+    '• ' + likelyReason('纳斯达克', nxCur, nxPrev, 'us'),
+    '• 科技股方向还要结合 AI 新闻、利率预期与大型成长股风险偏好确认。',
+    '[黄金与跨资产]',
+    '• ' + likelyReason('COMEX黄金', goldCur, goldPrev, 'gold'),
+    '• ' + relation() + ' 仅为行情归因参考，不构成投资建议。'
+  ].join('\n');
+  clearFinanceAnalysisSlots();
+  el.innerHTML = buildFinanceAnalysisCards(raw, false);
+  syncFinanceAnalysisLayout();
 }
 
 /* Display page refresh time separately from each market's last quote time. */

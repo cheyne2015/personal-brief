@@ -33,6 +33,7 @@ function initDomesticHot(forceRefresh) {
     return response.json();
   }).then(function(data) {
     if (!data || !data.success || !Array.isArray(data.items) || !data.items.length) throw new Error('No domestic hot events');
+    window._domesticHotItems = data.items.slice(0, 10);
     var html = '<div class="domestic-hot-list">';
     var observedAt = data.fetchedAt || new Date().toISOString();
     data.items.slice(0, 10).forEach(function(item, index) {
@@ -70,7 +71,61 @@ function initDomesticHot(forceRefresh) {
     return { tag:'domestic', ok:false };
   });
 }
+function initChengduLocal(forceRefresh) {
+  var container = document.getElementById('chengduLocalContainer');
+  var badge = document.getElementById('chengduLocalFreshBadge');
+  var sourceLabel = document.getElementById('chengduLocalSourceLabel');
+  if (!container) return Promise.resolve({ tag:'chengdu', ok:false });
+  return fetch('/api/llm/chengdu-local' + (forceRefresh ? '?refresh=1' : '')).then(function(response) {
+    if (!response.ok) throw new Error('Chengdu local HTTP ' + response.status);
+    return response.json();
+  }).then(function(data) {
+    if (!data || !data.success || !Array.isArray(data.items) || !data.items.length) throw new Error('No Chengdu local items');
+    window._chengduLocalItems = data.items.slice(0, 8);
+    var html = '<div class="domestic-hot-list local-chengdu-list">';
+    var observedAt = data.fetchedAt || new Date().toISOString();
+    data.items.slice(0, 8).forEach(function(item, index) {
+      var url = /^https?:\/\//.test(item.url || '') ? item.url : '#';
+      var source = item.source ? item.source : '成都本地';
+      var summary = item.summary || '';
+      var timeLabel = formatDomesticTime(item.publishedAt || observedAt, !!item.publishedAt);
+      var meta = [timeLabel, source].filter(Boolean).join(' \u00b7 ');
+      html += '<a class="domestic-hot-item local-chengdu-item" href="' + escapeDomestic(url) + '" target="_blank" rel="noopener noreferrer">';
+      html += '<span class="domestic-hot-rank">' + String(index + 1).padStart(2, '0') + '</span>';
+      html += '<span class="domestic-hot-main"><span class="domestic-hot-category">' + escapeDomestic(item.category || '成都生活') + '</span>';
+      html += '<span class="domestic-hot-title">' + escapeDomestic(item.title) + '</span>';
+      html += '<span class="domestic-hot-summary">' + escapeDomestic(summary) + '</span>';
+      html += '<span class="domestic-hot-meta">' + escapeDomestic(meta) + '</span></span>';
+      html += '<span class="domestic-hot-score">LOCAL</span></a>';
+    });
+    html += '</div>';
+    container.innerHTML = html;
+    if (sourceLabel) sourceLabel.textContent = '成都本地生活 & 新闻 TOP ' + Math.min(8, data.items.length) + ' · ' + (data.sources || []).join(' . ');
+    if (badge) {
+      var fetched = new Date(data.fetchedAt || Date.now());
+      var stamp = ('0' + fetched.getHours()).slice(-2) + ':' + ('0' + fetched.getMinutes()).slice(-2);
+      badge.className = 'freshness-badge live';
+      badge.innerHTML = '<span class="freshness-dot"></span>' + stamp;
+    }
+    return { tag:'chengdu', ok:true };
+  }).catch(function(error) {
+    console.error('Chengdu local failed:', error);
+    container.innerHTML = '<div class="empty-section" style="padding:30px;">成都本地生活与新闻暂时无法获取，请稍后刷新</div>';
+    if (badge) {
+      badge.className = 'freshness-badge snapshot';
+      badge.innerHTML = '<span class="freshness-dot"></span>OFFLINE';
+    }
+    return { tag:'chengdu', ok:false };
+  });
+}
+window.refreshChengduLocal = initChengduLocal;
 window.refreshDomesticHot = initDomesticHot;
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initDomesticHot);
-else initDomesticHot();
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function() {
+  initChengduLocal();
+  initDomesticHot();
+});
+else {
+  initChengduLocal();
+  initDomesticHot();
+}
 })();

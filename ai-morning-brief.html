@@ -28,8 +28,67 @@
 <!-- ===== Hero ===== -->
 <header class="hero">
   <div class="hero-content">
-    <div class="hero-badge">SYS.BRIEF v2.0 // CHEY</div>
-    <h1>AI . MARKET . WEATHER . GLOBAL</h1>
+    <div class="hero-badge">
+      <svg class="chey-badge-logo" viewBox="0 0 42 42" fill="none" aria-hidden="true">
+        <rect class="badge-logo-frame" x="0.5" y="0.5" width="41" height="41" rx="11"/>
+        <path class="badge-logo-arc" d="M29.5 10.8H18.8C13.1 10.8 8.8 15.2 8.8 21C8.8 26.8 13.1 31.2 18.8 31.2H29.5"/>
+        <path class="badge-logo-arc badge-logo-arc-delay" d="M27.8 15.1H19.4C16 15.1 13.3 17.7 13.3 21C13.3 24.3 16 26.9 19.4 26.9H27.8"/>
+        <path class="badge-logo-scan" d="M7.8 21H34.2"/>
+        <circle class="badge-logo-dot" cx="32" cy="21" r="3.1"/>
+        <circle cx="32" cy="21" r="6.2" stroke="currentColor" stroke-opacity="0.18" stroke-width="1"/>
+        <path class="badge-logo-mini" d="M7.5 17.5H10.5"/>
+        <path class="badge-logo-mini" d="M7.5 24.5H10.5"/>
+        <path class="badge-logo-mini" d="M20.5 6.7V9.2"/>
+      </svg>
+      <span>SYS.BRIEF v2.0 // CHEY</span>
+    </div>
+    <h1 class="hero-title-strip" aria-label="AI Market Weather Global">
+      <span class="hero-title-item">
+        <svg class="hero-title-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="7" y="7" width="10" height="10" rx="2"/>
+          <path d="M9.5 12H14.5"/>
+          <path d="M12 9.5V14.5"/>
+          <path d="M4 9H7"/>
+          <path d="M4 15H7"/>
+          <path d="M17 9H20"/>
+          <path d="M17 15H20"/>
+          <path d="M9 4V7"/>
+          <path d="M15 4V7"/>
+          <path d="M9 17V20"/>
+          <path d="M15 17V20"/>
+        </svg>
+        <span>AI</span>
+      </span>
+      <span class="hero-title-sep" aria-hidden="true"></span>
+      <span class="hero-title-item">
+        <svg class="hero-title-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M3 17L8 12L12 15L21 6"/>
+          <path d="M17 6H21V10"/>
+          <path d="M4 20H20"/>
+        </svg>
+        <span>MARKET</span>
+      </span>
+      <span class="hero-title-sep" aria-hidden="true"></span>
+      <span class="hero-title-item">
+        <svg class="hero-title-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M7.5 18H17A4 4 0 0 0 17 10H16.3A6 6 0 0 0 4.8 12.8A3.2 3.2 0 0 0 7.5 18Z"/>
+          <path d="M18.5 6.5L20 5"/>
+          <path d="M21 10H23"/>
+          <path d="M15 3V1"/>
+        </svg>
+        <span>WEATHER</span>
+      </span>
+      <span class="hero-title-sep" aria-hidden="true"></span>
+      <span class="hero-title-item">
+        <svg class="hero-title-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M3 12H21"/>
+          <path d="M12 3C14.4 5.4 15.6 8.4 15.6 12S14.4 18.6 12 21"/>
+          <path d="M12 3C9.6 5.4 8.4 8.4 8.4 12S9.6 18.6 12 21"/>
+        </svg>
+        <span>GLOBAL</span>
+      </span>
+    </h1>
     <p class="hero-subtitle" id="heroSubtitle">INITIALIZING SYSTEMS...</p>
 
 
@@ -74,6 +133,7 @@
 <!-- ===== Nav ===== -->
 <nav class="nav-section" aria-label="版块导航">
   <a href="#ai-daily" class="nav-link">AI_DAILY <span class="nav-badge">6</span></a>
+  <a href="#chengdu-local" class="nav-link">LOCAL <span class="nav-badge">8</span></a>
   <a href="#domestic" class="nav-link">DOMESTIC <span class="nav-badge">10</span></a>
   <a href="#world" class="nav-link">GLOBAL <span class="nav-badge">4</span></a>
   <a href="#arena" class="nav-link">ARENA_TOP10 <span class="nav-badge">10</span></a>
@@ -93,6 +153,16 @@
 </section>
 
 <!-- ===== SECTION 2: 国内热点 ===== -->
+<section class="major-section" id="chengdu-local">
+  <div class="major-header">
+    <div class="major-icon" style="background:var(--clr-tip-bg);">◈</div>
+    <h2 class="major-title">Chengdu Local</h2>
+    <span class="major-count" id="chengduLocalSourceLabel">成都本地生活 & 新闻 TOP 8</span>
+    <span class="freshness-badge updating" id="chengduLocalFreshBadge"><span class="freshness-dot"></span>LOADING</span>
+  </div>
+  <div id="chengduLocalContainer"><div class="empty-section" style="padding:40px;">◈ SCANNING CHENGDU LOCAL SIGNALS...</div></div>
+</section>
+
 <section class="major-section" id="domestic">
   <div class="major-header">
     <div class="major-icon" style="background:var(--clr-product-bg);">◈</div>
@@ -190,6 +260,7 @@
         <div class="fin-item"><span class="name">南华商品指数</span><span class="val" id="finNanhua">数据源待接入</span></div>
         <div class="fin-item"><span class="name">中证全债</span><span class="val" id="finBond">Loading...</span></div>
       </div>
+      <div class="finance-card-analysis-slot" data-analysis-key="cn"></div>
     </div>
 
     <div class="finance-card animate-on-scroll">
@@ -207,6 +278,7 @@
       <p style="margin-top:10px;font-size:0.78rem;color:var(--text-dim);">
         ◆ 美股行情以最近交易日或盘中数据为准
       </p>
+      <div class="finance-card-analysis-slot" data-analysis-key="us"></div>
     </div>
 
     <div class="finance-card animate-on-scroll">
@@ -222,6 +294,7 @@
         <div class="fin-item"><span class="name">上海金</span><span class="val" id="finShGold">¥--/g</span></div>
         <div class="fin-item"><span class="name">WTI原油</span><span class="val" id="finOil">$--/桶</span></div>
       </div>
+      <div class="finance-card-analysis-slot" data-analysis-key="gold"></div>
     </div>
   </div>
 

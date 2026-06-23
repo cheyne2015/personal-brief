@@ -172,7 +172,7 @@ function cleanTextList(values, maxItems, maxLength) {
 // 1. 金融走势分析
 app.post('/finance-analysis', aiRateLimiter, async (req, res) => {
   try {
-    const { shanghai, gold, nasdaq } = req.body;
+    const { shanghai, gold, nasdaq, context } = req.body;
     if (![shanghai, gold, nasdaq].every(isValidQuote)) {
       return res.status(400).json({ success:false, error:'Valid current and previous market values are required' });
     }
@@ -181,26 +181,65 @@ app.post('/finance-analysis', aiRateLimiter, async (req, res) => {
     const goldChange = ((gold.cur - gold.prev) / gold.prev * 100).toFixed(2);
     const nasdaqChange = ((nasdaq.cur - nasdaq.prev) / nasdaq.prev * 100).toFixed(2);
 
-    const prompt = `你是一位专业的金融分析师。请根据以下实时数据，生成一段简洁的 A 股 + 黄金市场走势分析（3-4 条，每条 30-50 字）。
+    const cleanContextItems = (values, maxItems) => Array.isArray(values) ? values.slice(0, maxItems).map(item => ({
+      title: String(item && item.title || '').trim().slice(0, 260),
+      summary: String(item && item.summary || '').trim().slice(0, 260),
+      category: String(item && (item.category || item.bucket) || '').trim().slice(0, 80),
+      time: String(item && item.time || '').trim().slice(0, 80)
+    })).filter(item => item.title) : [];
+    const financeContext = {
+      marketNews: cleanContextItems(context && context.marketNews, 18),
+      domestic: cleanContextItems(context && context.domestic, 10),
+      world: cleanContextItems(context && context.world, 16),
+      ai: cleanContextItems(context && context.ai, 8)
+    };
+    const formatContext = items => items.length ? items.map((item, i) => `${i + 1}. ${item.title}${item.summary ? ' — ' + item.summary : ''}${item.category ? ' [' + item.category + ']' : ''}${item.time ? ' (' + item.time + ')' : ''}`).join('\n') : '无';
+
+    const prompt = `你是一位专业的跨资产金融分析师。请根据行情数据和新闻上下文，生成三个板块的市场走势归因分析。注意：用户已经能看到涨跌幅，不需要你重复报价；你的重点是解释“为什么可能这样走”和“背后可能反映的市场逻辑”。
 
 实时数据：
 - 上证指数：当前 ${shanghai.cur}，昨收 ${shanghai.prev}，涨跌 ${shChange}%
 - 黄金价格：当前 ${gold.cur}，昨收 ${gold.prev}，涨跌 ${goldChange}%
 - 纳斯达克：当前 ${nasdaq.cur}，昨收 ${nasdaq.prev}，涨跌 ${nasdaqChange}%
 
+国内热点上下文：
+${formatContext(financeContext.domestic)}
+
+国际风险上下文：
+${formatContext(financeContext.world)}
+
+AI/科技上下文：
+${formatContext(financeContext.ai)}
+
+市场新闻上下文（优先用于归因）：
+${formatContext(financeContext.marketNews)}
+
 要求：
 1. 用中文输出，语气专业但易懂
-2. 每条以 "•" 开头，分别描述上证、纳斯达克、黄金及三者相对强弱
-3. 只能陈述输入价格能够直接支持的事实，不得虚构成交量、资金流向、支撑阻力、政策、地缘事件或涨跌原因
-4. 涨跌幅度很小（<0.1%）时，只说明价格接近平盘，不推断市场情绪
-5. 最后一条注明“仅为行情描述，不构成投资建议”
+2. 必须严格按以下格式输出三个板块，每个板块 2 条 bullet：
+[中国市场]
+• ...
+• ...
+[美股与科技]
+• ...
+• ...
+[黄金与跨资产]
+• ...
+• ...
+3. 必须优先使用“市场新闻上下文”做归因；国内热点、国际风险、AI/科技上下文只能作为辅助验证，不能强行把无关新闻套到涨跌原因上
+4. 禁止把“当前价格、昨收、涨跌百分比”作为主要内容复述；每条必须引用或概括至少一个市场新闻中的驱动线索
+5. 中国市场板块要优先从 China stocks / A-shares / Shanghai Composite 相关新闻中找原因；没有直接市场新闻时，必须写“缺少直接市场新闻证据”
+6. 美股与科技板块要优先从 Nasdaq / tech stocks / AI stocks / Fed rates / Treasury yields 相关新闻中找原因
+7. 黄金与跨资产板块要优先从 gold / dollar / Treasury yields / safe haven / oil 相关新闻中找原因，并说明股债商/黄金之间的信号
+8. 不能编造具体新闻、政策、成交量、资金流向、机构观点或支撑阻力；如新闻上下文不足，必须明确写“当前上下文不足以确认直接原因”
+9. 最后一条必须注明“仅为行情归因参考，不构成投资建议”
 
-只输出分析内容，不要加任何前缀或说明。`;
+只输出三个板块内容，不要加任何前言。`;
 
     const analysis = await callDeepSeek([
-      { role: 'system', content: '你是严谨的市场数据编辑，只能依据给定价格描述行情，不得补充未提供的数据、原因或事件。' },
+      { role: 'system', content: '你是严谨的跨资产市场分析师。你必须优先使用用户提供的新闻上下文进行归因，不能只复述涨跌，也不得编造未提供的新闻事实；必须区分事实、推测和待核验。' },
       { role: 'user', content: prompt }
-    ], 500);
+    ], 800);
 
     res.json({ success: true, analysis });
   } catch (error) {
@@ -337,8 +376,12 @@ app.get('/rss-proxy', async (req, res) => {
     if (!allowed) throw new Error('RSS host is not allowed');
 
     const rssRes = await fetchWithTimeout(parsed.toString(), {
-      headers: { 'User-Agent': 'ai-morning-brief' }
-    }, 8000);
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; ai-morning-brief/1.0; +https://brief.0cy.top)',
+        'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+        'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7'
+      }
+    }, 10000);
     if (!rssRes.ok) throw new Error('RSS upstream error: ' + rssRes.status);
     const body = await rssRes.text();
     res.set('Content-Type', 'application/xml; charset=utf-8');
@@ -363,34 +406,60 @@ app.post('/world-news-generate', async (req, res) => {
 // 7. 我关注的国际局势 — 从已核验标题中筛选高影响事件
 app.post('/my-focus-analysis', aiRateLimiter, async (req, res) => {
   try {
-    const { headlines } = req.body;
-    const safeHeadlines = cleanTextList(headlines, 20, 500);
+    const { headlines, shownHeadlines, events } = req.body;
+    const safeEvents = Array.isArray(events) ? events.slice(0, 48).map((item, index) => ({
+      id: Number(item && item.sourceId) || index + 1,
+      title: String(item && item.title || '').trim().slice(0, 500),
+      time: String(item && (item.pubDate || item.time) || '').trim().slice(0, 120),
+      category: String(item && item.category || '').trim().slice(0, 120),
+      desc: String(item && item.desc || '').trim().slice(0, 500),
+      track: String(item && item.track || '').trim().slice(0, 80)
+    })).filter(item => item.title) : [];
+    const safeHeadlines = safeEvents.length ? safeEvents.map(item => item.title) : cleanTextList(headlines, 40, 500);
+    const safeShownHeadlines = cleanTextList(shownHeadlines, 12, 500);
     if (!safeHeadlines.length) {
       return res.status(400).json({ success: false, error: 'Verified headlines are required' });
     }
 
-    const prompt = `以下是从真实新闻源抓取的今日国际局势关键标题。请筛选其中对全球政治、金融市场、能源安全影响最大的 3-5 条事件。
+    const eventLines = safeEvents.length
+      ? safeEvents.map((item, i) => `${i + 1}. 候选编号：${item.id}\n   标题：${item.title}\n   时间：${item.time || '未知'}\n   来源/类别：${item.category || '未知'}\n   建议归类：${item.track || '宏观风险'}\n   摘要：${item.desc || '无'}`).join('\n')
+      : safeHeadlines.slice(0, 30).map((h, i) => `${i + 1}. 标题：${h}\n   时间：未知\n   来源/类别：未知\n   摘要：无`).join('\n');
 
-新闻标题：
-${safeHeadlines.slice(0, 10).map((h, i) => `${i + 1}. ${h}`).join('\n')}
+    const prompt = `以下是从真实新闻源抓取的今日国际局势候选事件。页面上方 RSS 卡片已经展示了一批新闻；“我的关注”要做补充筛选，避免重复上方内容。
+
+你的新任务：输出 TOP 10，分成两类：
+- 5 条「宏观风险」：类似现在的全球政治、能源、金融市场、供应链、科技竞争等高影响事件。
+- 5 条「美国态势」：只选择与美国军事/防务、海外部署、Pentagon/美国防部、美国海空军、航母/舰队、海外基地、驻外兵力、军演/联合巡航、空袭/军事行动、军援/武器交付直接相关的事件。
+
+上方已展示标题（尽量不要重复）：
+${safeShownHeadlines.length ? safeShownHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n') : '无'}
+
+候选事件：
+${eventLines}
 
 请按以下格式输出，每条用 "---" 分隔：
+🏷️ 类别：宏观风险 / 美国态势
+# 候选编号：（必须使用候选事件里的候选编号）
+🕒 新闻时间：（必须使用候选事件里的时间；未知则写未知）
 🔴 事件标题
 📋 事件简述：（30-50字简述事件内容）
 🎯 关注原因：（30-50字说明为什么值得关注）
 
 要求：
-1. 按潜在影响排序，覆盖战争与停火、重大外交协议、制裁与军事变化、关键选举或政权变化、央行与贸易政策、能源和供应链风险、重大灾害与公共安全事件
-2. 筛选 3-5 条最有价值的，不要凑数
-3. 用中文输出，简洁有力
-4. 只能基于所给标题，不得补造未出现的事实；如果没有重大事件，输出"暂无符合关注条件的重大事件"
-5. 所有事件标题必须是完整中文，必须把英文新闻标题准确翻译后再输出；人名、机构名可保留必要的英文缩写，但不得直接复制整句英文标题
-6. 直接输出，不要加任何前言`;
+1. 总共尽量输出 10 条；前 5 条必须是「宏观风险」，后 5 条必须是「美国态势」
+2. 「美国态势」必须与美国军队或美国防务行动直接相关；普通美国外交、制裁、贸易、内政、选举、白宫表态，如果没有军队/军援/军事部署/军事行动内容，一律不要放入该类
+3. 如果美军候选不足，可以少于 5 条，但不得用美国普通对外新闻硬凑
+4. 用中文输出，简洁有力
+5. 只能基于所给标题，不得补造未出现的事实；如果没有重大事件，输出"暂无符合关注条件的重大事件"
+6. 所有事件标题必须是完整中文，必须把英文新闻标题准确翻译后再输出；人名、机构名可保留必要的英文缩写，但不得直接复制整句英文标题
+7. 不要选择与“上方已展示标题”明显同一件事的新闻，除非候选标题提供了明显更高的影响信息
+8. 每条必须保留候选编号，方便前端做二次去重
+9. 直接输出，不要加任何前言`;
 
     const analysis = await callDeepSeek([
-      { role: 'system', content: '你是国际局势与宏观风险分析师，负责从跨地区新闻中识别全球影响最大的事件。只能依据输入标题判断，不得编造事实或偏向特定国家和议题。你的全部输出，尤其是每条事件标题，必须使用中文。' },
+      { role: 'system', content: '你是国际局势与美国军事防务态势分析师，负责为个人决策简报挑选补充关注事件。你必须避开已展示新闻的重复内容，只能依据输入候选事件判断，不得编造事实。美国态势只限美国军事部署、演训、行动、基地、军援和防务相关事件，不包括普通外交或制裁新闻。你的全部输出必须使用中文。' },
       { role: 'user', content: prompt }
-    ], 800);
+    ], 1400);
 
     res.json({ success: true, analysis });
   } catch (error) {
@@ -682,6 +751,189 @@ app.get('/domestic-hot', async (req, res) => {
     res.json(payload);
   } catch (err) {
     console.error('Domestic hot events error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+function classifyChengduLocal(title, summary) {
+  const text = `${title || ''} ${summary || ''}`;
+  const groups = [
+    { category:'城市民生', terms:['成都','双流','天府新区','高新区','锦江','青羊','金牛','武侯','成华','龙泉驿','温江','郫都','新都','简阳','居民','社区','医院','学校','教育','医保','社保','住房','租房','房价','就业','招聘','养老','消费','补贴','服务'] },
+    { category:'交通出行', terms:['成都','双流机场','天府机场','地铁','公交','高铁','铁路','交通','道路','绕城','成渝','航线','通车','施工','限行','停车','出行'] },
+    { category:'生活消费', terms:['成都','消费券','商圈','餐饮','文旅','演出','展会','夜经济','以旧换新','家电','汽车','购物','市场监管','食品安全','价格','便民'] },
+    { category:'产业机会', terms:['成都','项目','签约','招商','创业','人才','补贴','园区','产业','低空经济','人工智能','算力','半导体','新能源汽车','生物医药','跨境电商','小微企业','贷款','税费'] },
+    { category:'政务政策', terms:['成都','成都市','四川','政策','发布','通知','新规','规划','住建','发改委','人社','商务局','教育局','公安','政务','办事'] },
+    { category:'天气安全', terms:['成都','暴雨','高温','预警','雷电','大风','内涝','防汛','地灾','安全','事故','消防','应急'] }
+  ];
+  let best = null;
+  groups.forEach(group => {
+    const hits = group.terms.filter(term => text.includes(term)).length;
+    if (hits && (!best || hits > best.score)) best = { category:group.category, score:hits };
+  });
+  return best || { category:'成都生活', score:1 };
+}
+
+function parseChengduRss(xml, source) {
+  const items = [];
+  const now = Date.now();
+  for (const match of String(xml || '').matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+    const block = match[1];
+    const read = tag => {
+      const found = block.match(new RegExp('<' + tag + '(?:[^>]*)>([\\s\\S]*?)<\\/' + tag + '>'));
+      return decodeRssValue(found ? found[1] : '');
+    };
+    const title = read('title');
+    const pubDate = read('pubDate');
+    const timestamp = Date.parse(pubDate);
+    if (!title || !timestamp || now - timestamp > 14 * 24 * 60 * 60 * 1000) continue;
+    const summary = read('description');
+    const text = `${title} ${summary}`;
+    if (!/成都|双流|天府新区|高新区|锦江|青羊|金牛|武侯|成华|龙泉驿|温江|郫都|新都|简阳|四川/.test(text)) continue;
+    if (/明星|演唱会门票黄牛|网红打卡|旅游攻略|美食推荐/.test(text) && !/政策|消费|交通|安全|民生|补贴|市场/.test(text)) continue;
+    const importance = classifyChengduLocal(title, summary);
+    items.push({
+      title,
+      summary: summary || title,
+      url: read('link'),
+      source,
+      category: importance.category,
+      importanceScore: importance.score,
+      publishedAt: pubDate
+    });
+    if (items.length >= 30) break;
+  }
+  return items;
+}
+
+function parseChengduHtml(html, source, baseUrl) {
+  const items = [];
+  const nowIso = new Date().toISOString();
+  const seen = new Set();
+  for (const match of String(html || '').matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    let url = decodeRssValue(match[1]);
+    let title = decodeRssValue(match[2]);
+    title = title.replace(/\s+/g, ' ').trim();
+    if (!title || title.length < 8 || title.length > 90) continue;
+    if (!/成都|双流|天府新区|高新区|锦江|青羊|金牛|武侯|成华|龙泉驿|温江|郫都|新都|简阳|四川/.test(title)) continue;
+    if (/首页|频道|更多|登录|注册|客户端|二维码|专题|图片|视频|直播|广告/.test(title)) continue;
+    if (/明星|网红打卡|旅游攻略|美食推荐/.test(title) && !/政策|消费|交通|安全|民生|补贴|市场|产业/.test(title)) continue;
+    if (seen.has(title)) continue;
+    seen.add(title);
+    try {
+      url = new URL(url, baseUrl).toString();
+    } catch {
+      url = baseUrl;
+    }
+    const importance = classifyChengduLocal(title, '');
+    items.push({
+      title,
+      summary: `${source}本地报道：${title}`,
+      url,
+      source,
+      category: importance.category,
+      importanceScore: importance.score,
+      publishedAt: nowIso
+    });
+    if (items.length >= 20) break;
+  }
+  return items;
+}
+
+async function fetchChengduLocalEvents() {
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (compatible; ai-morning-brief/1.0; +https://brief.0cy.top)',
+    'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.6'
+  };
+  const feeds = [
+    { source:'成都民生', url:'https://news.google.com/rss/search?q=%E6%88%90%E9%83%BD%20%E6%B0%91%E7%94%9F%20when:14d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans' },
+    { source:'成都交通', url:'https://news.google.com/rss/search?q=%E6%88%90%E9%83%BD%20%E4%BA%A4%E9%80%9A%20when:14d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans' },
+    { source:'成都消费', url:'https://news.google.com/rss/search?q=%E6%88%90%E9%83%BD%20%E6%B6%88%E8%B4%B9%20%E6%94%BF%E7%AD%96%20when:14d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans' },
+    { source:'成都机会', url:'https://news.google.com/rss/search?q=%E6%88%90%E9%83%BD%20%E4%BA%A7%E4%B8%9A%20%E6%8B%9B%E8%81%98%20%E5%88%9B%E4%B8%9A%20when:14d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans' },
+    { source:'成都安全', url:'https://news.google.com/rss/search?q=%E6%88%90%E9%83%BD%20%E5%A4%A9%E6%B0%94%20%E5%AE%89%E5%85%A8%20when:14d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans' },
+    { source:'Bing成都民生', url:'https://www.bing.com/news/search?q=%E6%88%90%E9%83%BD%20%E6%B0%91%E7%94%9F&format=rss' },
+    { source:'Bing成都交通', url:'https://www.bing.com/news/search?q=%E6%88%90%E9%83%BD%20%E4%BA%A4%E9%80%9A&format=rss' },
+    { source:'Bing成都生活', url:'https://www.bing.com/news/search?q=%E6%88%90%E9%83%BD%20%E7%94%9F%E6%B4%BB%20%E6%B6%88%E8%B4%B9&format=rss' }
+  ];
+  const htmlPages = [
+    { source:'新华网成都', url:'https://sc.news.cn/cd/' },
+    { source:'红星新闻网', url:'https://www.chengdu.cn/' },
+    { source:'四川在线成都', url:'https://cd.scol.com.cn/' },
+    { source:'中新网四川成都', url:'https://www.sc.chinanews.com.cn/cdxw/index.shtml' }
+  ];
+  const settled = await Promise.allSettled(feeds.map(feed =>
+    fetchWithTimeout(feed.url, { headers }, 10000).then(response => {
+      if (!response.ok) throw new Error(`Chengdu RSS HTTP ${response.status}`);
+      return response.text();
+    }).then(xml => parseChengduRss(xml, feed.source))
+  ));
+  const htmlSettled = await Promise.allSettled(htmlPages.map(page =>
+    fetchWithTimeout(page.url, { headers:{ ...headers, 'Accept':'text/html,*/*' } }, 8000).then(response => {
+      if (!response.ok) throw new Error(`Chengdu HTML HTTP ${response.status}`);
+      return response.text();
+    }).then(html => parseChengduHtml(html, page.source, page.url))
+  ));
+  const sources = [];
+  const grouped = new Map();
+  settled.forEach((result, index) => {
+    if (result.status !== 'fulfilled') return;
+    if (result.value.length) sources.push(feeds[index].source);
+    result.value.forEach(item => {
+      const key = normalizeHotTitle(item.title);
+      if (!key) return;
+      const existing = grouped.get(key);
+      if (existing) {
+        existing.score += item.importanceScore + 2;
+        if (item.summary.length > existing.summary.length) existing.summary = item.summary;
+        if (!existing.sources.includes(item.source)) existing.sources.push(item.source);
+      } else {
+        grouped.set(key, { ...item, score:item.importanceScore, sources:[item.source] });
+      }
+    });
+  });
+  htmlSettled.forEach((result, index) => {
+    if (result.status !== 'fulfilled') return;
+    if (result.value.length) sources.push(htmlPages[index].source);
+    result.value.forEach(item => {
+      const key = normalizeHotTitle(item.title);
+      if (!key) return;
+      const existing = grouped.get(key);
+      if (existing) {
+        existing.score += item.importanceScore + 1;
+        if (!existing.sources.includes(item.source)) existing.sources.push(item.source);
+      } else {
+        grouped.set(key, { ...item, score:item.importanceScore, sources:[item.source] });
+      }
+    });
+  });
+  const items = Array.from(grouped.values())
+    .sort((a, b) => (b.sources.length - a.sources.length) || (b.score - a.score) || (Date.parse(b.publishedAt) - Date.parse(a.publishedAt)))
+    .slice(0, 8)
+    .map((item, index) => ({
+      rank:index + 1,
+      title:item.title,
+      summary:item.summary,
+      url:item.url,
+      source:item.sources.join(' / '),
+      category:item.category,
+      publishedAt:item.publishedAt
+    }));
+  return { sources, items };
+}
+
+let chengduLocalCache = null;
+app.get('/chengdu-local', async (req, res) => {
+  try {
+    if (req.query.refresh !== '1' && chengduLocalCache && Date.now() - chengduLocalCache.savedAt < 10 * 60 * 1000) {
+      res.json({ ...chengduLocalCache.payload, cached: true });
+      return;
+    }
+    const result = await fetchChengduLocalEvents();
+    const payload = { success: true, fetchedAt: new Date().toISOString(), sources: result.sources, items: result.items };
+    chengduLocalCache = { savedAt: Date.now(), payload };
+    res.json(payload);
+  } catch (err) {
+    console.error('Chengdu local events error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

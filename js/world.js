@@ -10,9 +10,6 @@ function buildWorldNewsHTML(displayed, aiHtml) {
     html += '<span class="tag">⚡ ' + escapeHtml(breaking.category) + '</span>';
     if (breaking.pubDate) html += '<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px;">🕐 ' + fmtPubDate(breaking.pubDate) + '</span>';
     html += '<p><strong>' + escapeHtml(breaking.title) + '</strong>';
-    if (breaking.titleEn && breaking.titleEn !== breaking.title) {
-      html += ' <small style="opacity:0.55;font-weight:400;">(' + escapeHtml(breaking.titleEn) + ')</small>';
-    }
     html += '<br>' + escapeHtml(breaking.desc.slice(0, 200)) + (breaking.desc.length>200?'…':'') + '</p>';
     html += '<a href="' + escapeHtml(safeExternalUrl(breaking.link)) + '" class="card-action" target="_blank" rel="noopener noreferrer">阅读原文 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>';
     html += '</div>';
@@ -24,9 +21,6 @@ function buildWorldNewsHTML(displayed, aiHtml) {
     icon = icon ? icon[1] : '📰';
     html += '<div class="world-card animate-on-scroll visible">';
     html += '<h4>' + icon + ' ' + escapeHtml(item.title);
-    if (item.titleEn && item.titleEn !== item.title) {
-      html += ' <small style="display:block;opacity:0.55;font-weight:400;font-size:0.82em;margin-top:2px;">' + escapeHtml(item.titleEn) + '</small>';
-    }
     html += '</h4>';
     html += '<div class="news-meta">';
     html += '<span class="news-source-tag">' + escapeHtml(item.category) + '</span>';
@@ -44,6 +38,10 @@ function buildWorldNewsHTML(displayed, aiHtml) {
 var WORLD_RSS_SOURCES = [
   'https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en',
   'https://news.google.com/rss/search?q=(war%20OR%20ceasefire%20OR%20treaty%20OR%20summit%20OR%20sanctions%20OR%20election)%20when:1d&hl=en-US&gl=US&ceid=US:en',
+  'https://news.google.com/rss/search?q=(peace%20deal%20OR%20framework%20agreement%20OR%20memorandum%20of%20understanding%20OR%20signed%20agreement%20OR%20diplomatic%20breakthrough%20OR%20hostage%20deal)%20when:1d&hl=en-US&gl=US&ceid=US:en',
+  'https://news.google.com/rss/search?q=(export%20controls%20OR%20chips%20OR%20semiconductor%20OR%20rare%20earth%20OR%20shipping%20OR%20supply%20chain)%20when:1d&hl=en-US&gl=US&ceid=US:en',
+  'https://news.google.com/rss/search?q=(Pentagon%20OR%20%22US%20military%22%20OR%20%22US%20forces%22%20OR%20%22American%20troops%22%20OR%20%22US%20Navy%22%20OR%20%22US%20Air%20Force%22%20OR%20%22US%20Army%22%20OR%20USS%20OR%20carrier)%20when:3d&hl=en-US&gl=US&ceid=US:en',
+  'https://news.google.com/rss/search?q=(%22US%20troops%22%20OR%20%22US%20base%22%20OR%20%22military%20exercise%22%20OR%20%22joint%20drills%22%20OR%20deployment%20OR%20airstrike%20OR%20%22security%20assistance%22%20OR%20%22arms%20shipment%22)%20when:3d&hl=en-US&gl=US&ceid=US:en',
   'https://news.google.com/rss/search?q=(earthquake%20OR%20disaster%20OR%20attack%20OR%20coup%20OR%20assassination%20OR%20emergency)%20when:1d&hl=en-US&gl=US&ceid=US:en',
   'https://news.google.com/rss/search?q=(tariff%20OR%20central%20bank%20OR%20recession%20OR%20oil%20OR%20trade%20agreement)%20when:1d&hl=en-US&gl=US&ceid=US:en',
   'https://actually-relevant-api.onrender.com/api/feed'
@@ -166,6 +164,13 @@ function renderWorldNews(rssText) {
       var recency = isFinite(ageHours) ? Math.max(0, 6 - ageHours / 4) : 0;
       return termScore + Math.min(consensus, 4) * 6 + recency;
     }
+    function isUSMilitaryEvent(item) {
+      var text = ((item.title || '') + ' ' + (item.desc || '') + ' ' + (item.category || '')).toLowerCase();
+      var hasUS = /(^|\W)(u\.s\.|us|united states|american|pentagon|white house|biden|trump)($|\W)/.test(text);
+      var hasMilitary = /military|troops|forces|navy|air force|army|marines|pentagon|carrier|uss |base|deployment|deployed|drill|exercise|airstrike|strike|missile|weapons|arms shipment|security assistance|defense aid|joint patrol|warship|fighter jet|bomber|drone/.test(text);
+      var excludeCivil = /tariff|trade deal|election|court|immigration|student visa|lawsuit|campaign|congressional race|stock market/.test(text) && !hasMilitary;
+      return hasMilitary && (hasUS || /pentagon|uss |us navy|us air force|us army|american troops/.test(text)) && !excludeCivil;
+    }
     newsItems.sort(function(a, b) {
       var scoreDiff = worldPriorityScore(b) - worldPriorityScore(a);
       if (scoreDiff) return scoreDiff;
@@ -188,19 +193,40 @@ function renderWorldNews(rssText) {
     var origTitles = displayed.map(function(item) { return item.title; });
     var origDescs = displayed.map(function(item) { return item.desc; });
     window._worldHeadlines = diverseNews.slice(0, 20).map(function(item) { return item.title; });
+    window._worldDisplayedHeadlines = origTitles.slice();
+    var focusSeen = {};
+    var focusCandidates = diverseNews.slice(8, 24).concat(newsItems.slice(0, 60)).filter(function(item) {
+      if (!item || !item.title) return false;
+      if (displayed.some(function(shown) { return relatedWorldEvent(item, shown); })) return false;
+      var key = item.title.toLowerCase().replace(/\s+/g, ' ').trim();
+      if (focusSeen[key]) return false;
+      focusSeen[key] = true;
+      return true;
+    });
+    var militaryFocus = focusCandidates.filter(function(item) { return isUSMilitaryEvent(item); });
+    var macroFocus = focusCandidates.filter(function(item) { return !isUSMilitaryEvent(item); });
+    var orderedFocus = macroFocus.slice(0, 24).concat(militaryFocus.slice(0, 24));
+    focusCandidates.forEach(function(item) {
+      if (orderedFocus.length >= 48) return;
+      if (orderedFocus.indexOf(item) < 0) orderedFocus.push(item);
+    });
+    window._worldFocusItems = orderedFocus.slice(0, 48).map(function(item) {
+      return { title:item.title, pubDate:item.pubDate || '', category:item.category || '', desc:item.desc || '', link:item.link || '', track:isUSMilitaryEvent(item) ? '美国态势' : '宏观风险' };
+    });
+    window._worldFocusHeadlines = window._worldFocusItems.map(function(item) { return item.title; });
 
     // Compute content hash from titles
     var worldHash = hashStr(origTitles.slice().sort().join('|||'));
 
     // ===== CACHE HIT: render cached news + analysis + myFocus =====
     var worldCached = getCachedAIEntry('world');
-    if (!forceRefresh && worldCached && worldCached.hash === worldHash) {
+    if (!shouldBypassAICache() && worldCached && worldCached.hash === worldHash && worldCached.translationComplete) {
       if (worldCached.newsHtml) container.innerHTML = worldCached.newsHtml;
       if (worldCached.analysisHtml) {
         var analysisEl = ensureWorldAnalysisEl(container);
         analysisEl.innerHTML = worldCached.analysisHtml;
       }
-      renderMyFocusAnalysis(window._worldHeadlines);
+      renderMyFocusAnalysis(window._worldFocusItems, displayed);
       if (badge) { badge.className = 'freshness-badge live'; badge.innerHTML = '<span class="freshness-dot"></span>已翻译 (缓存)'; }
       return;
     }
@@ -219,7 +245,8 @@ function renderWorldNews(rssText) {
     // AI analysis runs in background too
     renderWorldNewsAnalysis(displayed);
 
-    // "我关注的国际局势" — 已移至 initAutoLoad 独立调用，不依赖此处
+    // Generate My Focus immediately from verified RSS candidates; translation is not a prerequisite.
+    renderMyFocusAnalysis(window._worldFocusItems, displayed);
 
   } catch(e) {
     console.error('World news parse error:', e);
@@ -264,7 +291,92 @@ function ensureWorldMyFocusEl(worldContainer) {
   return focusEl;
 }
 
+function normalizeEventText(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[\u{1f300}-\u{1faff}]/gu, ' ')
+    .replace(/[^a-z0-9\u4e00-\u9fff]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function eventTextTokens(text) {
+  var stop = {
+    the:1, and:1, for:1, with:1, from:1, into:1, after:1, before:1, this:1, that:1,
+    says:1, said:1, will:1, over:1, amid:1, about:1, latest:1, news:1,
+    可能:1, 全球:1, 影响:1, 关注:1, 原因:1, 事件:1, 新闻:1, 运输:1, 市场:1
+  };
+  return normalizeEventText(text).split(/\s+/).filter(function(token) {
+    return token.length > 1 && !stop[token];
+  });
+}
+
+function eventTextSimilarity(leftText, rightText) {
+  var left = Array.isArray(rightText) ? eventTextTokens(leftText) : eventTextTokens(leftText);
+  var right = Array.isArray(rightText) ? rightText : eventTextTokens(rightText);
+  if (!left.length || !right.length) return 0;
+  var rightSet = {};
+  right.forEach(function(token) { rightSet[token] = true; });
+  var shared = left.filter(function(token) { return rightSet[token]; }).length;
+  return shared / Math.max(3, Math.min(left.length, right.length));
+}
+
+function isDuplicateWorldCandidate(item, shownItems) {
+  var candidateText = [item.title, item.desc, item.category].join(' ');
+  return (shownItems || []).some(function(shown) {
+    var shownText = [shown.title, shown.titleEn, shown.desc, shown.descEn, shown.category].join(' ');
+    return eventTextSimilarity(candidateText, shownText) >= 0.24 || eventTextSimilarity(shownText, candidateText) >= 0.24;
+  });
+}
+
+function formatFocusEventTime(value) {
+  if (!value) return '';
+  var text = String(value).trim();
+  if (!text || text === '未知') return text || '';
+  var parsed = new Date(text);
+  if (!isNaN(parsed.getTime())) return fmtPubDate(text);
+  return text;
+}
+
 /* Background upgrades: translate → AI generate → update UI */
+function hasChineseText(value) {
+  return /[\u4e00-\u9fff]/.test(String(value || ''));
+}
+
+async function translateFocusTexts(items) {
+  var list = Array.isArray(items) ? items : [];
+  async function translateField(field, maxLength) {
+    var targets = list.map(function(item) {
+      var text = String(item[field] || '').trim();
+      return { item:item, text:text };
+    }).filter(function(entry) {
+      return entry.text && !hasChineseText(entry.text);
+    });
+    for (var start = 0; start < targets.length; start += 24) {
+      var chunk = targets.slice(start, start + 24);
+      try {
+        var resp = await fetch('/api/llm/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ texts: chunk.map(function(entry) { return entry.text.slice(0, maxLength); }) })
+        });
+        if (!resp.ok) continue;
+        var data = await resp.json();
+        if (!data.success || !Array.isArray(data.translations)) continue;
+        chunk.forEach(function(entry, offset) {
+          var translated = String(data.translations[offset] || '').trim();
+          if (translated && hasChineseText(translated)) entry.item[field] = translated;
+        });
+      } catch (error) {
+        console.warn('Focus translation failed:', field, error.message);
+      }
+    }
+  }
+  await translateField('title', 500);
+  await translateField('desc', 900);
+  return list;
+}
+
 async function upgradeWorldNews(container, badge, displayed, origTitles, origDescs) {
   var translatedTitles = false;
   var translatedDescs = false;
@@ -307,18 +419,20 @@ async function upgradeWorldNews(container, badge, displayed, origTitles, origDes
   if (translatedTitles || translatedDescs) {
     container.innerHTML = buildWorldNewsHTML(displayed, '');
   }
-  if (badge) { badge.className = 'freshness-badge live'; badge.innerHTML = '<span class="freshness-dot"></span>已翻译'; }
-
-  // Generate focus cards from translated titles so card headings are Chinese.
-  renderMyFocusAnalysis(displayed.map(function(item) { return item.title; }));
+  var translationComplete = translatedTitles && translatedDescs;
+  if (badge) {
+    badge.className = translationComplete ? 'freshness-badge live' : 'freshness-badge snapshot';
+    badge.innerHTML = '<span class="freshness-dot"></span>' + (translationComplete ? '已翻译' : '翻译不完整');
+  }
 
   // Save world news (translations only) to cache
   var wh = window._worldHash;
-  if (wh) {
+  if (wh && translationComplete) {
     var cache = getAICache();
     var entry = cache.world || {};
     entry.hash = wh;
     entry.newsHtml = buildWorldNewsHTML(displayed, '');
+    entry.translationComplete = true;
     entry.timestamp = Date.now();
     setAICache({ world: entry });
   }
@@ -346,9 +460,10 @@ async function renderWorldNewsAnalysis(newsItems) {
     if (!data.success) throw new Error(data.error);
 
     // Render AI-generated analysis
+    var generatedAt = Date.now();
     var lines = data.analysis.split('\n').filter(function(l) { return l.trim(); });
     var html = '<div class="analysis-card animate-on-scroll visible" style="margin-top:24px;background:linear-gradient(135deg, var(--clr-world-bg), var(--clr-product-bg));border:1px solid var(--r-glow);">';
-    html += '<div class="an-title">🌍 国际局势分析（AI 生成）</div><ul class="an-list">';
+    html += '<div class="an-title">🌍 国际局势分析（AI 生成）' + buildAITimestamp(generatedAt) + '</div><ul class="an-list">';
     lines.forEach(function(line) {
       var text = line.replace(/^[•·▪]/, '').trim();
       if (text) html += '<li>' + escapeHtml(text) + '</li>';
@@ -385,15 +500,34 @@ function renderStaticWorldNewsAnalysis(newsItems) {
 }
 
 /* "我的关注" — 从已核验的国际新闻标题中提取高影响事件 */
-async function renderMyFocusAnalysis(headlines) {
+async function renderMyFocusAnalysis(headlines, shownHeadlines) {
   var focusEl = ensureWorldMyFocusEl(document.getElementById('worldContainer'));
-  headlines = Array.isArray(headlines) ? headlines.filter(Boolean).slice(0, 20) : [];
-  if (!headlines.length) return;
-  var focusHash = hashStr('zh-title-v2|||' + headlines.join('|||'));
+  var originalCandidates = Array.isArray(headlines) ? headlines.filter(Boolean).slice(0, 48).map(function(item) {
+    if (typeof item === 'string') return { title:item, pubDate:'', category:'' };
+    return { title:item.title || '', pubDate:item.pubDate || item.time || '', category:item.category || '', desc:item.desc || '', link:item.link || item.url || '', track:item.track || '', sourceId:item.sourceId || '' };
+  }).filter(function(item) { return item.title; }) : [];
+  var shownItems = Array.isArray(shownHeadlines) ? shownHeadlines.filter(Boolean).slice(0, 12).map(function(item) {
+    if (typeof item === 'string') return { title:item, desc:'', titleEn:'', descEn:'', category:'' };
+    return { title:item.title || '', desc:item.desc || '', titleEn:item.titleEn || '', descEn:item.descEn || '', category:item.category || '' };
+  }) : [];
+  var shownTexts = shownItems.map(function(item) { return normalizeEventText([item.title, item.titleEn, item.desc, item.descEn].join(' ')); });
+  var candidateItems = originalCandidates.filter(function(item) {
+    return !isDuplicateWorldCandidate(item, shownItems);
+  });
+  if (!candidateItems.length) candidateItems = originalCandidates.slice(0, 20);
+  if (!candidateItems.length) {
+    focusEl.innerHTML = '';
+    return;
+  }
+  candidateItems = candidateItems.map(function(item, index) {
+    return Object.assign({}, item, { sourceId:index + 1 });
+  });
+  candidateItems = await translateFocusTexts(candidateItems);
+  var focusHash = hashStr('focus-v7-zh-market-military-top10|||' + candidateItems.map(function(item) { return item.title + '|' + item.pubDate + '|' + item.track; }).join('|||') + '|||shown|||' + shownItems.map(function(item) { return item.title; }).join('|||'));
 
   // Check cache first — if valid cache exists, show it and skip fetch
   var cached = getCachedAIEntry('myFocus');
-  if (!forceRefresh && cached && cached.dateKey === todayStr() && cached.hash === focusHash) {
+  if (!shouldBypassAICache() && cached && cached.dateKey === todayStr() && cached.hash === focusHash) {
     focusEl.innerHTML = cached.html;
     return;
   }
@@ -401,7 +535,7 @@ async function renderMyFocusAnalysis(headlines) {
   // Show loading state
   focusEl.innerHTML = '<div class="my-focus-section" style="margin-top:24px;">' +
     '<div class="my-focus-title">' +
-    '🎯 我的关注 <span class="badge-tag">✨ AI 精选</span></div>' +
+    '🎯 我的关注 <span class="badge-tag">✨ AI 精选</span>' + buildAITimestamp(Date.now()) + '</div>' +
     '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;color:var(--text-muted);font-size:0.9rem;">' +
     '<div class="spinner" style="width:20px;height:20px;border:3px solid var(--border);border-top-color:var(--amber);border-radius:50%;animation:spin 0.8s linear infinite;"></div>' +
     'AI 正在生成美军相关重大动态…</div></div>';
@@ -410,7 +544,7 @@ async function renderMyFocusAnalysis(headlines) {
     var response = await fetch('/api/llm/my-focus-analysis', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ headlines: headlines })
+      body: JSON.stringify({ events: candidateItems, shownHeadlines: shownItems.map(function(item) { return item.title; }) })
     });
 
     if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -421,26 +555,57 @@ async function renderMyFocusAnalysis(headlines) {
     // Parse AI response into event cards
     var raw = data.analysis.trim();
     if (/暂无(符合关注条件的)?重大事件|暂无美军/.test(raw)) {
-      // No relevant events found — don't show anything
-      focusEl.innerHTML = '';
+      focusEl.innerHTML = buildFallbackMyFocusHtml(candidateItems, 'AI 未筛出足够事件，以下显示 RSS 候选');
       return;
     }
 
     var blocks = raw.split('---').filter(function(b) { return b.trim(); });
-    if (blocks.length === 0) { focusEl.innerHTML = ''; return; }
+    if (blocks.length === 0) {
+      focusEl.innerHTML = buildFallbackMyFocusHtml(candidateItems, 'AI 返回为空，以下显示 RSS 候选');
+      return;
+    }
 
+    var generatedAt = Date.now();
+    var candidateById = {};
+    candidateItems.forEach(function(item) { candidateById[String(item.sourceId)] = item; });
+    var usedSourceIds = {};
+    var renderedFocusCount = 0;
     var html = '<div class="my-focus-section ai-just-arrived" style="margin-top:24px;">';
     html += '<div class="my-focus-title">';
-    html += '🎯 我的关注 <span class="badge-tag">✨ AI 精选</span></div>';
+    html += '🎯 我的关注 <span class="badge-tag">TOP 10 · AI 精选</span>' + buildAITimestamp(generatedAt) + '</div>';
 
     blocks.forEach(function(block) {
       var lines = block.trim().split('\n').filter(function(l) { return l.trim(); });
       if (lines.length < 2) return;
       // Parse title and content
-      var title = lines[0].replace(/^🔴\s*/, '').trim();
+      var group = '宏观风险';
+      var title = '';
+      var time = '';
       var desc = '';
       var reason = '';
-      for (var i = 1; i < lines.length; i++) {
+      var sourceId = '';
+      lines.forEach(function(rawLine) {
+        var line = rawLine.trim();
+        if (line.indexOf('🏷️') === 0 || line.indexOf('类别') >= 0) {
+          group = line.replace(/^🏷️\s*(类别[：:]?\s*)?/, '').trim() || group;
+        } else if (line.indexOf('候选编号') >= 0) {
+          var match = line.match(/(\d+)/);
+          if (match) sourceId = match[1];
+        } else if (line.indexOf('🕒') === 0 || line.indexOf('新闻时间') >= 0) {
+          time = line.replace(/^🕒\s*(新闻时间[：:]?\s*)?/, '').trim();
+        } else if (line.indexOf('🔴') === 0) {
+          title = line.replace(/^🔴\s*(事件标题[：:]?\s*)?/, '').trim();
+        }
+      });
+      var sourceItem = sourceId ? candidateById[sourceId] : null;
+      if (sourceItem) {
+        if (usedSourceIds[sourceId] || isDuplicateWorldCandidate(sourceItem, shownItems)) return;
+        usedSourceIds[sourceId] = true;
+        if (!time && sourceItem.pubDate) time = sourceItem.pubDate;
+      }
+      if (!title) title = lines[0].replace(/^🔴\s*/, '').trim();
+      if (sourceItem && title && !hasChineseText(title) && sourceItem.title) title = sourceItem.title;
+      for (var i = 0; i < lines.length; i++) {
         var line = lines[i].trim();
         if (line.indexOf('📋') === 0) {
           desc = line.replace(/^📋\s*(事件简述[：:]?\s*)?/, '').trim();
@@ -456,28 +621,105 @@ async function renderMyFocusAnalysis(headlines) {
           reason = line;
         }
       }
+      if (sourceItem && desc && !hasChineseText(desc) && sourceItem.desc) desc = String(sourceItem.desc).slice(0, 140);
+      var combined = title + ' ' + desc + ' ' + reason;
+      if (shownTexts.some(function(shown) { return eventTextSimilarity(combined, shown) >= 0.28; })) return;
 
-      html += '<div class="focus-event-card">';
+      if (/美军|美国|对外|海外/.test(group)) group = '美国态势';
+      var groupClass = /美国|美军/.test(group) ? ' us-track' : ' macro-track';
+      var displayTime = formatFocusEventTime(time);
+      var sourceUrl = sourceItem && sourceItem.link ? safeExternalUrl(sourceItem.link) : '';
+      html += '<div class="focus-event-card' + groupClass + '">';
+      html += '<div class="fe-topline"><span class="fe-group">' + escapeHtml(group) + '</span>' + (displayTime ? '<span class="fe-time">🕒 ' + escapeHtml(displayTime) + '</span>' : '') + '</div>';
       html += '<div class="fe-title">🔴 ' + escapeHtml(title) + '</div>';
       if (desc) html += '<div class="fe-desc"><span class="fe-label">📋 事件简述：</span>' + escapeHtml(desc) + '</div>';
       if (reason) html += '<div class="fe-reason"><span class="reason-label">🎯 关注原因：</span>' + escapeHtml(reason) + '</div>';
+      if (sourceUrl) html += '<a href="' + escapeHtml(sourceUrl) + '" class="card-action focus-source-link" target="_blank" rel="noopener noreferrer">来源 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>';
       html += '</div>';
+      renderedFocusCount++;
     });
 
+    if (renderedFocusCount < 10) {
+      html += buildFocusSupplementCards(candidateItems, usedSourceIds, 10 - renderedFocusCount, shownItems);
+    }
     html += '</div>';
+    if (html.indexOf('focus-event-card') < 0) {
+      focusEl.innerHTML = buildFallbackMyFocusHtml(candidateItems, 'AI 结果与上方新闻重复，以下显示 RSS 候选');
+      return;
+    }
     focusEl.innerHTML = html;
 
     // Save myFocus to independent date-keyed cache (not tied to world news)
     var dk = data.dateKey || todayStr();
-    setAICache({ myFocus: { dateKey: dk, hash: focusHash, html: html } });
+    setAICache({ myFocus: { dateKey: dk, hash: focusHash, html: html, timestamp: generatedAt } });
 
   } catch (error) {
     console.error('My focus analysis failed:', error);
-    // Show brief error instead of hiding completely
-    focusEl.innerHTML = '<div class="my-focus-section" style="margin-top:24px;">' +
-      '<div class="my-focus-title">' +
-      '🎯 我的关注 <span class="badge-tag">✨ AI 精选</span></div>' +
-      '<div style="color:var(--text-muted);font-size:0.85rem;padding:12px 0;">⚠️ 加载失败，请稍后刷新重试</div></div>';
+    focusEl.innerHTML = buildFallbackMyFocusHtml(candidateItems, 'AI 加载失败，以下显示 RSS 候选');
   }
 }
 
+function buildFocusSupplementCards(candidateItems, usedSourceIds, limit, shownItems) {
+  var html = '';
+  var count = 0;
+  var ordered = (candidateItems || []).slice().sort(function(a, b) {
+    var au = /美国|美军/.test(a.track || '') ? 1 : 0;
+    var bu = /美国|美军/.test(b.track || '') ? 1 : 0;
+    return bu - au;
+  });
+  ordered.forEach(function(item) {
+    if (count >= limit) return;
+    if (!item || !item.title || usedSourceIds[String(item.sourceId)]) return;
+    if (isDuplicateWorldCandidate(item, shownItems || [])) return;
+    usedSourceIds[String(item.sourceId)] = true;
+    var group = /美国|美军/.test(item.track || '') ? '美国态势' : '宏观风险';
+    var groupClass = group === '美国态势' ? ' us-track' : ' macro-track';
+    var time = item.pubDate ? fmtPubDate(item.pubDate) : '未知';
+    html += '<div class="focus-event-card' + groupClass + '">';
+    html += '<div class="fe-topline"><span class="fe-group">' + group + '</span><span class="fe-time">🕒 ' + escapeHtml(time) + '</span></div>';
+    html += '<div class="fe-title">🔴 ' + escapeHtml(item.title || '') + '</div>';
+    if (item.desc) html += '<div class="fe-desc"><span class="fe-label">📋 事件简述：</span>' + escapeHtml(String(item.desc).slice(0, 120)) + '</div>';
+    html += '<div class="fe-reason"><span class="reason-label">🎯 关注原因：</span>' + (group === '美国态势' ? 'AI 有效结果不足，补充展示美国军事、防务或海外行动态势候选。' : 'AI 有效结果不足，补充展示国际宏观风险候选事件。') + '</div>';
+    if (item.link) html += '<a href="' + escapeHtml(safeExternalUrl(item.link)) + '" class="card-action focus-source-link" target="_blank" rel="noopener noreferrer">来源 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>';
+    html += '</div>';
+    count++;
+  });
+  return html;
+}
+
+function buildFallbackMyFocusHtml(candidateItems, note) {
+  var macro = [];
+  var military = [];
+  (candidateItems || []).forEach(function(item) {
+    if (/美军/.test(item.track || '') && military.length < 5) military.push(item);
+    else if (macro.length < 5) macro.push(item);
+  });
+  if (military.length < 5) {
+    (candidateItems || []).forEach(function(item) {
+      if (military.length >= 5) return;
+      var text = ((item.title || '') + ' ' + (item.desc || '')).toLowerCase();
+      if (/pentagon|us military|u\.s\. military|us forces|u\.s\. forces|troops|navy|air force|army|carrier|uss |base|deployment|exercise|drill|weapons|arms shipment|security assistance/.test(text) && military.indexOf(item) < 0) {
+        military.push(item);
+      }
+    });
+  }
+  var picked = macro.slice(0, 5).concat(military.slice(0, 5));
+  if (!picked.length) return '';
+  var html = '<div class="my-focus-section ai-just-arrived" style="margin-top:24px;">';
+  html += '<div class="my-focus-title">🎯 我的关注 <span class="badge-tag">TOP 10 · RSS 候选</span>' + buildAITimestamp(Date.now(), '更新') + '</div>';
+  if (note) html += '<div class="my-focus-note">' + escapeHtml(note) + '</div>';
+  picked.forEach(function(item, index) {
+    var group = index < macro.slice(0, 5).length ? '宏观风险' : '美国态势';
+    var groupClass = group === '美国态势' ? ' us-track' : ' macro-track';
+    var time = item.pubDate ? fmtPubDate(item.pubDate) : '未知';
+    html += '<div class="focus-event-card' + groupClass + '">';
+    html += '<div class="fe-topline"><span class="fe-group">' + group + '</span><span class="fe-time">🕒 ' + escapeHtml(time) + '</span></div>';
+    html += '<div class="fe-title">🔴 ' + escapeHtml(item.title || '') + '</div>';
+    if (item.desc) html += '<div class="fe-desc"><span class="fe-label">📋 事件简述：</span>' + escapeHtml(String(item.desc).slice(0, 120)) + '</div>';
+    html += '<div class="fe-reason"><span class="reason-label">🎯 关注原因：</span>' + (group === '美国态势' ? '涉及美国军事、防务或海外行动态势，需关注对地区安全与市场风险偏好的影响。' : '属于国际宏观风险候选事件，需结合后续新闻确认其对能源、贸易和资产价格的影响。') + '</div>';
+    if (item.link) html += '<a href="' + escapeHtml(safeExternalUrl(item.link)) + '" class="card-action focus-source-link" target="_blank" rel="noopener noreferrer">来源 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>';
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
