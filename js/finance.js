@@ -194,10 +194,43 @@ function buildFinanceAnalysisCards(rawText, isAI, generatedAt) {
 
 function financeAnalysisHasCausalDepth(lines) {
   var text = (lines || []).join(' ');
-  var causalHits = ['因为', '原因', '反映', '说明', '驱动', '可能', '更像', '确认', '风险偏好', '避险', '利率', '美元', '政策', '情绪', '预期', '上下文', '新闻', '科技', 'AI', '地缘', '能源', '制裁', '航运', '消费']
+  var causalHits = ['因为', '原因', '反映', '说明', '驱动', '可能', '更像', '确认', '风险偏好', '避险', '利率', '美元', '政策', '情绪', '预期', '证据', '不足', '科技', 'AI', '地缘', '能源', '制裁', '航运', '消费']
     .filter(function(term) { return text.indexOf(term) >= 0; }).length;
   var priceOnlyHits = ['当前', '昨收', '较昨日', '较昨收', '收报', '跌幅', '涨幅'].filter(function(term) { return text.indexOf(term) >= 0; }).length;
   return causalHits >= 2 && priceOnlyHits <= 4;
+}
+
+function scoreFinanceMarketNews(item) {
+  var bucket = item.bucket || item.category || '';
+  var text = ((item.title || '') + ' ' + (item.summary || '')).toLowerCase();
+  var keywordMap = {
+    '中国市场': ['china stocks', 'a-shares', 'a shares', 'shanghai composite', 'csi 300', 'hong kong stocks', 'property', 'yuan', 'pboc', 'stimulus', 'tariff', '中国股市', 'a股', '上证', '沪深300', '人民币', '央行', '刺激'],
+    '美股与科技': ['nasdaq', 'tech stocks', 'nvidia', 'ai stocks', 'fed', 'treasury yields', 'rates', 'semiconductor', 'chip', 'earnings', '纳斯达克', '科技股', '美联储', '美债', '利率', '半导体'],
+    '黄金与跨资产': ['gold', 'bullion', 'dollar', 'treasury yields', 'safe haven', 'oil', 'crude', 'inflation', 'geopolitical', '黄金', '美元', '美债', '避险', '原油', '通胀', '地缘']
+  };
+  var direct = keywordMap[bucket] || [];
+  var shared = ['market', 'stocks', 'shares', 'futures', 'price', 'prices', 'yield', 'yields', 'investors', '市场', '股市', '期货', '价格', '收益率', '投资者'];
+  var score = 0;
+  direct.forEach(function(term) { if (text.indexOf(term) >= 0) score += 3; });
+  shared.forEach(function(term) { if (text.indexOf(term) >= 0) score += 1; });
+  if (item.time && !isNaN(Date.parse(item.time)) && Date.now() - Date.parse(item.time) < 36 * 60 * 60 * 1000) score += 1;
+  var copy = Object.assign({}, item);
+  copy.relevanceScore = score;
+  copy.evidenceLevel = score >= 5 ? 'direct' : (score >= 3 ? 'indirect' : 'weak');
+  return copy;
+}
+
+function filterFinanceMarketNewsForAnalysis(items) {
+  var scored = (Array.isArray(items) ? items : []).map(scoreFinanceMarketNews);
+  var buckets = ['中国市场', '美股与科技', '黄金与跨资产'];
+  var selected = [];
+  buckets.forEach(function(bucket) {
+    scored.filter(function(item) { return item.bucket === bucket && item.relevanceScore >= 3; })
+      .sort(function(a, b) { return b.relevanceScore - a.relevanceScore; })
+      .slice(0, 5)
+      .forEach(function(item) { selected.push(item); });
+  });
+  return selected;
 }
 
 function collectFinanceContext() {
@@ -207,7 +240,8 @@ function collectFinanceContext() {
   var ai = Array.isArray(window._aiNewsItems) ? window._aiNewsItems : [];
   var marketNews = Array.isArray(window._financeMarketNewsItems) ? window._financeMarketNewsItems : [];
   return {
-    marketNews: marketNews.slice(0, 18),
+    marketNews: filterFinanceMarketNewsForAnalysis(marketNews).slice(0, 15),
+    backgroundNews: marketNews.slice(0, 12),
     domestic: domestic.slice(0, 10).map(function(item) {
       return {
         title: item.title || '',

@@ -185,38 +185,40 @@ app.post('/finance-analysis', aiRateLimiter, async (req, res) => {
       title: String(item && item.title || '').trim().slice(0, 260),
       summary: String(item && item.summary || '').trim().slice(0, 260),
       category: String(item && (item.category || item.bucket) || '').trim().slice(0, 80),
-      time: String(item && item.time || '').trim().slice(0, 80)
+      time: String(item && item.time || '').trim().slice(0, 80),
+      evidenceLevel: String(item && item.evidenceLevel || '').trim().slice(0, 20),
+      relevanceScore: Number(item && item.relevanceScore) || 0
     })).filter(item => item.title) : [];
     const financeContext = {
-      marketNews: cleanContextItems(context && context.marketNews, 18),
-      domestic: cleanContextItems(context && context.domestic, 10),
-      world: cleanContextItems(context && context.world, 16),
-      ai: cleanContextItems(context && context.ai, 8)
+      marketNews: cleanContextItems(context && context.marketNews, 15),
+      backgroundNews: cleanContextItems(context && context.backgroundNews, 12),
+      domestic: cleanContextItems(context && context.domestic, 6),
+      world: cleanContextItems(context && context.world, 8),
+      ai: cleanContextItems(context && context.ai, 6)
     };
-    const formatContext = items => items.length ? items.map((item, i) => `${i + 1}. ${item.title}${item.summary ? ' — ' + item.summary : ''}${item.category ? ' [' + item.category + ']' : ''}${item.time ? ' (' + item.time + ')' : ''}`).join('\n') : '无';
+    const formatContext = items => items.length ? items.map((item, i) => `${i + 1}. ${item.title}${item.summary ? ' — ' + item.summary : ''}${item.category ? ' [' + item.category + ']' : ''}${item.evidenceLevel ? ' {证据:' + item.evidenceLevel + ',相关性:' + item.relevanceScore + '}' : ''}${item.time ? ' (' + item.time + ')' : ''}`).join('\n') : '无';
 
-    const prompt = `你是一位专业的跨资产金融分析师。请根据行情数据和新闻上下文，生成三个板块的市场走势归因分析。注意：用户已经能看到涨跌幅，不需要你重复报价；你的重点是解释“为什么可能这样走”和“背后可能反映的市场逻辑”。
+    const prompt = `你是一位专业的跨资产金融分析师。请根据行情数据和新闻上下文，生成三个板块的市场走势归因分析。注意：用户已经能看到涨跌幅，不需要你重复报价；你的重点是判断“有没有足够直接证据解释走势”，再解释背后可能反映的市场逻辑。
 
 实时数据：
 - 上证指数：当前 ${shanghai.cur}，昨收 ${shanghai.prev}，涨跌 ${shChange}%
 - 黄金价格：当前 ${gold.cur}，昨收 ${gold.prev}，涨跌 ${goldChange}%
 - 纳斯达克：当前 ${nasdaq.cur}，昨收 ${nasdaq.prev}，涨跌 ${nasdaqChange}%
 
-国内热点上下文：
-${formatContext(financeContext.domestic)}
-
-国际风险上下文：
-${formatContext(financeContext.world)}
-
-AI/科技上下文：
-${formatContext(financeContext.ai)}
-
-市场新闻上下文（优先用于归因）：
+直接市场证据（只能优先使用这些做归因）：
 ${formatContext(financeContext.marketNews)}
+
+背景新闻（只能用于说明风险背景，不能作为直接涨跌原因）：
+${formatContext(financeContext.backgroundNews)}
+
+国内/国际/AI 背景（只能作为辅助背景，不能强行归因）：
+国内：${formatContext(financeContext.domestic)}
+国际：${formatContext(financeContext.world)}
+AI：${formatContext(financeContext.ai)}
 
 要求：
 1. 用中文输出，语气专业但易懂
-2. 必须严格按以下格式输出三个板块，每个板块 2 条 bullet：
+2. 必须严格按以下格式输出三个板块，每个板块 2-3 条 bullet：
 [中国市场]
 • ...
 • ...
@@ -226,13 +228,14 @@ ${formatContext(financeContext.marketNews)}
 [黄金与跨资产]
 • ...
 • ...
-3. 必须优先使用“市场新闻上下文”做归因；国内热点、国际风险、AI/科技上下文只能作为辅助验证，不能强行把无关新闻套到涨跌原因上
-4. 禁止把“当前价格、昨收、涨跌百分比”作为主要内容复述；每条必须引用或概括至少一个市场新闻中的驱动线索
-5. 中国市场板块要优先从 China stocks / A-shares / Shanghai Composite 相关新闻中找原因；没有直接市场新闻时，必须写“缺少直接市场新闻证据”
-6. 美股与科技板块要优先从 Nasdaq / tech stocks / AI stocks / Fed rates / Treasury yields 相关新闻中找原因
-7. 黄金与跨资产板块要优先从 gold / dollar / Treasury yields / safe haven / oil 相关新闻中找原因，并说明股债商/黄金之间的信号
-8. 不能编造具体新闻、政策、成交量、资金流向、机构观点或支撑阻力；如新闻上下文不足，必须明确写“当前上下文不足以确认直接原因”
-9. 最后一条必须注明“仅为行情归因参考，不构成投资建议”
+3. 每个板块第一条必须先做证据判断：直接证据充足 / 直接证据有限 / 缺少直接市场新闻证据
+4. 只有“直接市场证据”里有对应板块新闻时，才能写确定性较强的归因；否则必须写“当前上下文不足以确认直接原因”，并给出后续要跟踪的数据
+5. 禁止把“当前价格、昨收、涨跌百分比”作为主要内容复述；可以简单提方向，但重点是逻辑链条
+6. 中国市场优先从 A股、上证、沪深300、中国政策、人民币、地产、消费或外资相关证据找逻辑；没有就说证据不足
+7. 美股与科技优先从 Nasdaq、科技股、AI、半导体、Fed、Treasury yields 证据找逻辑
+8. 黄金与跨资产优先从 gold、dollar、Treasury yields、safe haven、oil、geopolitical 证据找逻辑，并说明股债商/黄金之间的信号
+9. 不能编造具体新闻、政策、成交量、资金流向、机构观点、支撑阻力或“市场普遍认为”；背景新闻只能写成“可能影响风险偏好/待验证”
+10. 最后一条必须注明“仅为行情归因参考，不构成投资建议”
 
 只输出三个板块内容，不要加任何前言。`;
 

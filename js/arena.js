@@ -26,7 +26,7 @@ function fetchArenaData() {
     if (idx >= dates.length) throw new Error('Arena data unavailable');
     var dateStr = dates[idx];
     return Promise.all(cats.map(function(cat) { return fetchArenaCategory(dateStr, cat); }))
-      .then(function(groups) { return { date: dateStr, groups: groups }; })
+      .then(function(groups) { return { date: dateStr, groups: groups, categories: cats }; })
       .catch(function() { return tryDate(idx + 1); });
   }
   return tryDate(0);
@@ -34,8 +34,16 @@ function fetchArenaData() {
 
 function normalizeArenaPayload(payload) {
   if (Array.isArray(payload)) return { date: null, groups: payload };
-  if (payload && Array.isArray(payload.groups)) return payload;
-  if (payload && Array.isArray(payload.data)) return { date: payload.date || null, groups: payload.data };
+  if (payload && Array.isArray(payload.groups)) return {
+    date: payload.date || null,
+    groups: payload.groups,
+    categories: Array.isArray(payload.categories) ? payload.categories : null
+  };
+  if (payload && Array.isArray(payload.data)) return {
+    date: payload.date || null,
+    groups: payload.data,
+    categories: Array.isArray(payload.categories) ? payload.categories : null
+  };
   return { date: null, groups: [] };
 }
 
@@ -57,6 +65,11 @@ function genArenaNote(models, cat) {
 function renderArena(payload) {
   var normalizedArena = normalizeArenaPayload(payload);
   var data = normalizedArena.groups;
+  var categoryOrder = normalizedArena.categories || ['text','code','text-to-image','text-to-video'];
+  var groupByKey = {};
+  categoryOrder.forEach(function(key, idx) {
+    groupByKey[key] = data[idx] || [];
+  });
   var container = document.getElementById('arenaContainer');
   var countEl = document.querySelector('#arena .major-count');
   if (!container) return;
@@ -89,7 +102,7 @@ function renderArena(payload) {
   // Tab Panels
   html += '<div class="arena-panels">';
   tabs.forEach(function(t, ti) {
-    var d = data[ti]; if (!d) return;
+    var d = groupByKey[t.key]; if (!d || !d.length) return;
     html += '<div class="arena-panel'+(ti===0?' active':'')+'" id="panel-' + t.key + '">';
     html += '<div class="arena-grid">';
     html += '<div class="arena-card animate-on-scroll visible">';
@@ -125,9 +138,10 @@ function renderArena(payload) {
 
   // ===== AI Summary: 国产模型动态 =====
   var cnModels = [];
-  var catLabel = ['Chat','Code','Image','Video'];
+  var catLabel = { text:'Chat', code:'Code', 'text-to-image':'Image', 'text-to-video':'Video' };
   var cnVendorsAI = ['Alibaba','Alibaba-ATH','Z.ai','DeepSeek','Moonshot','MiniMax','Xiaomi','ByteDance','Bytedance','01.AI','Qwen','Tencent','Baidu','Huawei','iFlytek'];
-  data.forEach(function(catModels, catIdx) {
+  tabs.forEach(function(tab) {
+    var catModels = groupByKey[tab.key] || [];
     if (!catModels) return;
     catModels.forEach(function(m) {
       var vendor = String(m.vendor || '');
@@ -136,7 +150,7 @@ function renderArena(payload) {
         cnModels.push({
           model: m.model, vendor: m.vendor,
           rank: m.rank, score: m.score,
-          category: catLabel[catIdx] || ''
+          category: catLabel[tab.key] || tab.label || ''
         });
       }
     });

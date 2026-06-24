@@ -68,6 +68,11 @@ assert(app.includes('focus-source-link'), 'My Focus cards must expose source lin
 assert(app.includes('link:item.link'), 'My Focus candidates must preserve RSS source links');
 assert(app.includes('buildFocusSupplementCards'), 'My Focus must supplement AI output when fewer than 10 cards render');
 assert(backend.includes('候选编号'), 'My Focus prompt must preserve candidate IDs for frontend dedupe');
+assert(app.includes('categories: cats'), 'Arena payload must carry category order');
+assert(app.includes('groupByKey[t.key]'), 'Arena tabs must render by category key, not array index');
+assert(!app.includes('var d = data[ti]'), 'Arena tab rendering must not depend on mismatched tab/data order');
+assert(app.includes('filterFinanceMarketNewsForAnalysis'), 'Finance analysis must score and filter market news relevance');
+assert(backend.includes('直接市场证据'), 'Finance prompt must separate direct market evidence from background news');
 assert(app.includes("'PAGE UPDATED '"), 'Page refresh time must be labeled separately from quote time');
 assert(!app.includes("el.setAttribute('title', 'Data fetched at '"), 'Market cards must not label request time as quote time');
 assert(preview.includes("const publicFiles = new Set"), 'Preview server must use a public-file allowlist');
