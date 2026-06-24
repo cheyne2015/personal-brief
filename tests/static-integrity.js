@@ -73,6 +73,9 @@ assert(app.includes('groupByKey[t.key]'), 'Arena tabs must render by category ke
 assert(!app.includes('var d = data[ti]'), 'Arena tab rendering must not depend on mismatched tab/data order');
 assert(app.includes('filterFinanceMarketNewsForAnalysis'), 'Finance analysis must score and filter market news relevance');
 assert(backend.includes('直接市场证据'), 'Finance prompt must separate direct market evidence from background news');
+assert(app.includes('loadFinanceMacroContext'), 'Finance analysis must load macro indicator context');
+assert(backend.includes("app.get('/market/macro-context'"), 'Backend must expose macro context endpoint');
+assert(backend.includes('FRED_MACRO_SERIES'), 'Macro context must use explicit FRED series definitions');
 assert(app.includes("'PAGE UPDATED '"), 'Page refresh time must be labeled separately from quote time');
 assert(!app.includes("el.setAttribute('title', 'Data fetched at '"), 'Market cards must not label request time as quote time');
 assert(preview.includes("const publicFiles = new Set"), 'Preview server must use a public-file allowlist');

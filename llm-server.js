@@ -194,9 +194,23 @@ app.post('/finance-analysis', aiRateLimiter, async (req, res) => {
       backgroundNews: cleanContextItems(context && context.backgroundNews, 12),
       domestic: cleanContextItems(context && context.domestic, 6),
       world: cleanContextItems(context && context.world, 8),
-      ai: cleanContextItems(context && context.ai, 6)
+      ai: cleanContextItems(context && context.ai, 6),
+      macro: Array.isArray(context && context.macro) ? context.macro.slice(0, 8).map(item => ({
+        name: String(item && item.name || '').trim().slice(0, 80),
+        value: Number(item && item.value),
+        previous: Number(item && item.previous),
+        change: Number(item && item.change),
+        unit: String(item && item.unit || '').trim().slice(0, 20),
+        date: String(item && item.date || '').trim().slice(0, 20),
+        previousDate: String(item && item.previousDate || '').trim().slice(0, 20),
+        source: String(item && item.source || '').trim().slice(0, 80)
+      })).filter(item => item.name && Number.isFinite(item.value)) : []
     };
     const formatContext = items => items.length ? items.map((item, i) => `${i + 1}. ${item.title}${item.summary ? ' — ' + item.summary : ''}${item.category ? ' [' + item.category + ']' : ''}${item.evidenceLevel ? ' {证据:' + item.evidenceLevel + ',相关性:' + item.relevanceScore + '}' : ''}${item.time ? ' (' + item.time + ')' : ''}`).join('\n') : '无';
+    const formatMacro = items => items.length ? items.map((item, i) => {
+      const changeText = Number.isFinite(item.change) ? (item.change >= 0 ? '+' : '') + item.change.toFixed(item.unit === '%' || item.name.includes('利率') || item.name.includes('利差') ? 2 : 3) : 'n/a';
+      return `${i + 1}. ${item.name}: ${item.value}${item.unit || ''}, 前值 ${Number.isFinite(item.previous) ? item.previous + (item.unit || '') : 'n/a'}, 变化 ${changeText}${item.unit || ''}, 日期 ${item.date}${item.source ? ', 来源 ' + item.source : ''}`;
+    }).join('\n') : '无';
 
     const prompt = `你是一位专业的跨资产金融分析师。请根据行情数据和新闻上下文，生成三个板块的市场走势归因分析。注意：用户已经能看到涨跌幅，不需要你重复报价；你的重点是判断“有没有足够直接证据解释走势”，再解释背后可能反映的市场逻辑。
 
@@ -207,6 +221,9 @@ app.post('/finance-analysis', aiRateLimiter, async (req, res) => {
 
 直接市场证据（只能优先使用这些做归因）：
 ${formatContext(financeContext.marketNews)}
+
+跨资产指标硬证据（用于判断美元、利率、波动率、油价是否支持归因）：
+${formatMacro(financeContext.macro)}
 
 背景新闻（只能用于说明风险背景，不能作为直接涨跌原因）：
 ${formatContext(financeContext.backgroundNews)}
@@ -229,11 +246,11 @@ AI：${formatContext(financeContext.ai)}
 • ...
 • ...
 3. 每个板块第一条必须先做证据判断：直接证据充足 / 直接证据有限 / 缺少直接市场新闻证据
-4. 只有“直接市场证据”里有对应板块新闻时，才能写确定性较强的归因；否则必须写“当前上下文不足以确认直接原因”，并给出后续要跟踪的数据
+4. 只有“直接市场证据”或“跨资产指标硬证据”能对应板块时，才能写确定性较强的归因；否则必须写“当前上下文不足以确认直接原因”，并给出后续要跟踪的数据
 5. 禁止把“当前价格、昨收、涨跌百分比”作为主要内容复述；可以简单提方向，但重点是逻辑链条
 6. 中国市场优先从 A股、上证、沪深300、中国政策、人民币、地产、消费或外资相关证据找逻辑；没有就说证据不足
-7. 美股与科技优先从 Nasdaq、科技股、AI、半导体、Fed、Treasury yields 证据找逻辑
-8. 黄金与跨资产优先从 gold、dollar、Treasury yields、safe haven、oil、geopolitical 证据找逻辑，并说明股债商/黄金之间的信号
+7. 美股与科技优先从 Nasdaq、科技股、AI、半导体、Fed、Treasury yields、VIX 证据找逻辑
+8. 黄金与跨资产优先从 gold、dollar、Treasury yields、safe haven、oil、geopolitical、VIX 证据找逻辑，并说明股债商/黄金之间的信号
 9. 不能编造具体新闻、政策、成交量、资金流向、机构观点、支撑阻力或“市场普遍认为”；背景新闻只能写成“可能影响风险偏好/待验证”
 10. 最后一条必须注明“仅为行情归因参考，不构成投资建议”
 
@@ -960,6 +977,68 @@ const MARKET_HISTORY_SYMBOLS = {
   gold: { sina:'GC', name:'COMEX黄金', currency:'USD/oz' }
 };
 const marketHistoryCache = new Map();
+const macroContextCache = new Map();
+
+const FRED_MACRO_SERIES = [
+  { id:'DGS10', name:'美国10年期国债收益率', unit:'%', source:'FRED / Federal Reserve' },
+  { id:'T10Y2Y', name:'美国10年-2年期限利差', unit:'%', source:'FRED / Federal Reserve' },
+  { id:'VIXCLS', name:'VIX波动率指数', unit:'', source:'FRED / CBOE' },
+  { id:'DTWEXBGS', name:'广义美元指数', unit:'', source:'FRED / Federal Reserve' },
+  { id:'DCOILWTICO', name:'WTI原油现货', unit:' USD/bbl', source:'FRED / EIA' }
+];
+
+function parseFredCsv(text) {
+  const rows = String(text || '').trim().split(/\r?\n/).slice(1)
+    .map(line => {
+      const parts = line.split(',');
+      const rawValue = String(parts[1] || '').trim();
+      return { date:parts[0], value:rawValue === '' ? NaN : Number(rawValue) };
+    })
+    .filter(row => /^\d{4}-\d{2}-\d{2}$/.test(row.date) && Number.isFinite(row.value));
+  if (rows.length < 2) throw new Error('Insufficient FRED data');
+  return rows.slice(-2);
+}
+
+async function fetchFredSeries(series) {
+  const url = 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=' + encodeURIComponent(series.id);
+  const response = await fetchWithTimeout(url, {
+    headers:{ 'User-Agent':'ai-morning-brief', 'Accept':'text/csv,*/*' }
+  }, 12000);
+  if (!response.ok) throw new Error(`FRED ${series.id} HTTP ${response.status}`);
+  const rows = parseFredCsv(await response.text());
+  const previous = rows[0];
+  const latest = rows[1];
+  return {
+    id: series.id,
+    name: series.name,
+    unit: series.unit,
+    source: series.source,
+    date: latest.date,
+    value: latest.value,
+    previousDate: previous.date,
+    previous: previous.value,
+    change: latest.value - previous.value
+  };
+}
+
+async function fetchMacroContext(forceRefresh) {
+  const cached = macroContextCache.get('macro');
+  if (!forceRefresh && cached && Date.now() - cached.savedAt < 30 * 60 * 1000) return cached.payload;
+  const results = await Promise.all(FRED_MACRO_SERIES.map(series =>
+    fetchFredSeries(series).then(indicator => ({ ok:true, indicator })).catch(error => ({ ok:false, id:series.id, error:error.message }))
+  ));
+  const indicators = results.filter(result => result.ok).map(result => result.indicator);
+  if (!indicators.length) throw new Error('Macro context sources unavailable');
+  const payload = {
+    success:true,
+    fetchedAt:new Date().toISOString(),
+    source:'FRED',
+    indicators,
+    errors:results.filter(result => !result.ok).map(result => ({ id:result.id, error:result.error }))
+  };
+  macroContextCache.set('macro', { savedAt:Date.now(), payload });
+  return payload;
+}
 
 async function fetchMarketHistory(symbolKey, forceRefresh) {
   const config = MARKET_HISTORY_SYMBOLS[symbolKey];
@@ -996,6 +1075,14 @@ async function fetchMarketHistory(symbolKey, forceRefresh) {
 app.get('/market/history', async (req, res) => {
   try {
     res.json(await fetchMarketHistory(String(req.query.symbol || ''), req.query.refresh === '1'));
+  } catch (err) {
+    res.status(502).json({ success:false, error:err.message });
+  }
+});
+
+app.get('/market/macro-context', async (req, res) => {
+  try {
+    res.json(await fetchMacroContext(req.query.refresh === '1'));
   } catch (err) {
     res.status(502).json({ success:false, error:err.message });
   }

@@ -56,10 +56,13 @@ function renderFinanceAnalysis(shCur, shPrev, goldCur, goldPrev, nxCur, nxPrev) 
   renderStaticFinanceAnalysis(shCur, shPrev, goldCur, goldPrev, nxCur, nxPrev);
   if (finBadge) { finBadge.className = 'freshness-badge updating'; finBadge.innerHTML = '<span class="freshness-dot"></span>AI 分析中…'; }
 
-  loadFinanceNewsContext(shouldBypassAICache()).then(function() {
+  Promise.all([
+    loadFinanceNewsContext(shouldBypassAICache()),
+    loadFinanceMacroContext(shouldBypassAICache())
+  ]).then(function() {
     var financeContext = collectFinanceContext();
     // Compute data hash to detect quote and dedicated market-news changes.
-    var dataHash = hashStr([shCur, shPrev, goldCur, goldPrev, nxCur||0, nxPrev||0, JSON.stringify(financeContext.marketNews || [])].join('|'));
+    var dataHash = hashStr([shCur, shPrev, goldCur, goldPrev, nxCur||0, nxPrev||0, JSON.stringify(financeContext.marketNews || []), JSON.stringify(financeContext.macro || [])].join('|'));
     var finCached = getCachedAIEntry('finance');
 
     if (!shouldBypassAICache() && finCached && finCached.hash === dataHash && finCached.aiHtml) {
@@ -239,9 +242,11 @@ function collectFinanceContext() {
     (Array.isArray(window._worldHeadlines) ? window._worldHeadlines.map(function(title) { return { title:title }; }) : []);
   var ai = Array.isArray(window._aiNewsItems) ? window._aiNewsItems : [];
   var marketNews = Array.isArray(window._financeMarketNewsItems) ? window._financeMarketNewsItems : [];
+  var macro = window._financeMacroContext && Array.isArray(window._financeMacroContext.indicators) ? window._financeMacroContext.indicators : [];
   return {
     marketNews: filterFinanceMarketNewsForAnalysis(marketNews).slice(0, 15),
     backgroundNews: marketNews.slice(0, 12),
+    macro: macro.slice(0, 8),
     domestic: domestic.slice(0, 10).map(function(item) {
       return {
         title: item.title || '',
@@ -261,6 +266,39 @@ function collectFinanceContext() {
       return { title:item.title || '', summary:item.summary || '', time:item.publishedAt || '' };
     })
   };
+}
+
+function loadFinanceMacroContext(force) {
+  if (!force && window._financeMacroContext && Array.isArray(window._financeMacroContext.indicators)) {
+    return Promise.resolve(window._financeMacroContext);
+  }
+  var cached = apiCacheGet('finance_macro_context');
+  if (!force && cached && cached.data && Array.isArray(cached.data.indicators) && Date.now() - cached.ts < 30 * 60 * 1000) {
+    window._financeMacroContext = cached.data;
+    return Promise.resolve(window._financeMacroContext);
+  }
+  return fetch('/api/llm/market/macro-context' + (force ? '?refresh=1' : ''))
+    .then(function(response) {
+      if (!response.ok) throw new Error('Macro context HTTP ' + response.status);
+      return response.json();
+    })
+    .then(function(data) {
+      if (!data || !data.success || !Array.isArray(data.indicators) || !data.indicators.length) {
+        throw new Error('Macro context unavailable');
+      }
+      window._financeMacroContext = data;
+      apiCacheSet('finance_macro_context', data);
+      return data;
+    })
+    .catch(function(error) {
+      console.warn('Finance macro context failed:', error.message);
+      if (cached && cached.data && Array.isArray(cached.data.indicators)) {
+        window._financeMacroContext = cached.data;
+        return window._financeMacroContext;
+      }
+      window._financeMacroContext = { success:false, indicators:[] };
+      return window._financeMacroContext;
+    });
 }
 
 var FINANCE_RSS_SOURCES = [
