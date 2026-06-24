@@ -120,7 +120,7 @@ const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || '';
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 15000);
-const RSS_PROXY_ALLOWLIST = (process.env.RSS_PROXY_ALLOWLIST || 'actually-relevant-api.onrender.com,news.google.com')
+const RSS_PROXY_ALLOWLIST = (process.env.RSS_PROXY_ALLOWLIST || 'actually-relevant-api.onrender.com,news.google.com,feeds.npr.org,www.france24.com,www.chinanews.com.cn')
   .split(',')
   .map(host => host.trim().toLowerCase())
   .filter(Boolean);

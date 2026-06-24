@@ -414,7 +414,7 @@ async function serveRssProxy(req, res) {
     const rawUrl = requestUrl.searchParams.get('url');
     if (!rawUrl) throw new Error('Missing url parameter');
     const target = new URL(rawUrl);
-    const allowedHosts = ['actually-relevant-api.onrender.com', 'news.google.com'];
+    const allowedHosts = ['actually-relevant-api.onrender.com', 'news.google.com', 'feeds.npr.org', 'www.france24.com', 'www.chinanews.com.cn'];
     const allowed = target.protocol === 'https:' && allowedHosts.some(host => target.hostname === host || target.hostname.endsWith('.' + host));
     if (!allowed) throw new Error('RSS host is not allowed');
     let text = '';

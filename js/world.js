@@ -44,7 +44,10 @@ var WORLD_RSS_SOURCES = [
   'https://news.google.com/rss/search?q=(%22US%20troops%22%20OR%20%22US%20base%22%20OR%20%22military%20exercise%22%20OR%20%22joint%20drills%22%20OR%20deployment%20OR%20airstrike%20OR%20%22security%20assistance%22%20OR%20%22arms%20shipment%22)%20when:3d&hl=en-US&gl=US&ceid=US:en',
   'https://news.google.com/rss/search?q=(earthquake%20OR%20disaster%20OR%20attack%20OR%20coup%20OR%20assassination%20OR%20emergency)%20when:1d&hl=en-US&gl=US&ceid=US:en',
   'https://news.google.com/rss/search?q=(tariff%20OR%20central%20bank%20OR%20recession%20OR%20oil%20OR%20trade%20agreement)%20when:1d&hl=en-US&gl=US&ceid=US:en',
-  'https://actually-relevant-api.onrender.com/api/feed'
+  'https://actually-relevant-api.onrender.com/api/feed',
+  'https://feeds.npr.org/1004/rss.xml',
+  'https://www.france24.com/en/rss',
+  'https://www.chinanews.com.cn/rss/world.xml'
 ];
 
 function stripHtml(html) {
@@ -311,9 +314,55 @@ function eventTextTokens(text) {
   });
 }
 
+function cjkBigrams(text) {
+  var compact = String(text || '').replace(/[^\u4e00-\u9fff]/g, '');
+  var grams = [];
+  for (var i = 0; i < compact.length - 1; i++) grams.push(compact.slice(i, i + 2));
+  return grams;
+}
+
+function jaccard(left, right) {
+  if (!left.length || !right.length) return 0;
+  var a = {}, b = {}, shared = 0, total = 0;
+  left.forEach(function(token) { a[token] = true; });
+  right.forEach(function(token) { b[token] = true; });
+  Object.keys(a).forEach(function(token) {
+    total++;
+    if (b[token]) shared++;
+  });
+  Object.keys(b).forEach(function(token) {
+    if (!a[token]) total++;
+  });
+  return total ? shared / total : 0;
+}
+
+function entityOverlapScore(leftText, rightText) {
+  var entities = ['阿里巴巴','五角大楼','中国军方','黑名单','马里兰','初选','罗切斯特','特朗普','伊朗','以色列','美军','美国防部','国会','中国','稀土','防企','军工','贸易战'];
+  var leftHits = entities.filter(function(entity) { return String(leftText || '').indexOf(entity) >= 0; });
+  if (!leftHits.length) return 0;
+  var shared = leftHits.filter(function(entity) { return String(rightText || '').indexOf(entity) >= 0; }).length;
+  return shared / Math.max(1, leftHits.length);
+}
+
 function eventTextSimilarity(leftText, rightText) {
   var left = Array.isArray(rightText) ? eventTextTokens(leftText) : eventTextTokens(leftText);
   var right = Array.isArray(rightText) ? rightText : eventTextTokens(rightText);
+  var tokenScore = 0;
+  if (!left.length || !right.length) tokenScore = 0;
+  else {
+    var rightSet = {};
+    right.forEach(function(token) { rightSet[token] = true; });
+    var shared = left.filter(function(token) { return rightSet[token]; }).length;
+    tokenScore = shared / Math.max(3, Math.min(left.length, right.length));
+  }
+  var cjkScore = jaccard(cjkBigrams(leftText), cjkBigrams(rightText));
+  var entityScore = entityOverlapScore(leftText, rightText);
+  return Math.max(tokenScore, cjkScore, entityScore >= 0.5 ? 0.42 : 0);
+}
+
+function eventTokenSimilarityOnly(leftText, rightText) {
+  var left = eventTextTokens(leftText);
+  var right = eventTextTokens(rightText);
   if (!left.length || !right.length) return 0;
   var rightSet = {};
   right.forEach(function(token) { rightSet[token] = true; });
@@ -585,7 +634,10 @@ async function renderMyFocusAnalysis(headlines, shownHeadlines) {
   candidateItems = candidateItems.map(function(item, index) {
     return Object.assign({}, item, { sourceId:index + 1 });
   });
+  // First pass: cluster raw RSS titles before translation so the AI never sees a pile of duplicated reports.
+  candidateItems = clusterFocusCandidates(candidateItems).slice(0, 48);
   candidateItems = await translateFocusTexts(candidateItems);
+  // Second pass: translation can reveal equivalence that was hard to detect in mixed-language titles.
   candidateItems = clusterFocusCandidates(candidateItems).slice(0, 48);
   var focusHash = hashStr('focus-v8-clustered-zh-market-military-top10|||' + candidateItems.map(function(item) { return item.title + '|' + item.pubDate + '|' + item.track + '|' + item.sourceCount; }).join('|||') + '|||shown|||' + shownItems.map(function(item) { return item.title; }).join('|||'));
 
