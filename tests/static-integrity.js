@@ -51,7 +51,7 @@ assert(app.includes('item.publishedAt || observedAt'), 'Domestic news does not r
 assert(html.includes('id="chengdu-local"'), 'Chengdu local section is missing');
 assert(app.includes('refreshChengduLocal'), 'Chengdu local refresh function is missing');
 assert(backend.includes("app.get('/chengdu-local'"), 'Chengdu local backend endpoint is missing');
-assert(app.includes("focus-v7-zh-market-military-top10|||"), 'My Focus cache version is missing');
+assert(app.includes("focus-v8-clustered-zh-market-military-top10|||"), 'My Focus clustered cache version is missing');
 assert(app.includes('translateFocusTexts'), 'My Focus candidates must be translated before rendering');
 assert(app.includes('shouldRunDailyAutoRefresh'), 'Daily first-open AI refresh guard is missing');
 assert(backend.includes('所有事件标题必须是完整中文'), 'My Focus prompt must require Chinese titles');
@@ -67,6 +67,9 @@ assert(app.includes('isDuplicateWorldCandidate'), 'World My Focus must dedupe ag
 assert(app.includes('focus-source-link'), 'My Focus cards must expose source links');
 assert(app.includes('link:item.link'), 'My Focus candidates must preserve RSS source links');
 assert(app.includes('buildFocusSupplementCards'), 'My Focus must supplement AI output when fewer than 10 cards render');
+assert(app.includes('clusterFocusCandidates'), 'My Focus must cluster duplicate event reports');
+assert(app.includes('buildFocusSourceMeta'), 'My Focus must show multi-source event evidence');
+assert(styles.includes('.fe-sources'), 'My Focus multi-source style is missing');
 assert(backend.includes('候选编号'), 'My Focus prompt must preserve candidate IDs for frontend dedupe');
 assert(app.includes('categories: cats'), 'Arena payload must carry category order');
 assert(app.includes('groupByKey[t.key]'), 'Arena tabs must render by category key, not array index');

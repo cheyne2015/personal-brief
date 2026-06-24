@@ -451,7 +451,9 @@ app.post('/my-focus-analysis', aiRateLimiter, async (req, res) => {
       time: String(item && (item.pubDate || item.time) || '').trim().slice(0, 120),
       category: String(item && item.category || '').trim().slice(0, 120),
       desc: String(item && item.desc || '').trim().slice(0, 500),
-      track: String(item && item.track || '').trim().slice(0, 80)
+      track: String(item && item.track || '').trim().slice(0, 80),
+      sourceCount: Number(item && item.sourceCount) || 1,
+      sourceNames: Array.isArray(item && item.sourceNames) ? item.sourceNames.slice(0, 4).map(name => String(name || '').trim()).filter(Boolean) : []
     })).filter(item => item.title) : [];
     const safeHeadlines = safeEvents.length ? safeEvents.map(item => item.title) : cleanTextList(headlines, 40, 500);
     const safeShownHeadlines = cleanTextList(shownHeadlines, 12, 500);
@@ -460,7 +462,7 @@ app.post('/my-focus-analysis', aiRateLimiter, async (req, res) => {
     }
 
     const eventLines = safeEvents.length
-      ? safeEvents.map((item, i) => `${i + 1}. 候选编号：${item.id}\n   标题：${item.title}\n   时间：${item.time || '未知'}\n   来源/类别：${item.category || '未知'}\n   建议归类：${item.track || '宏观风险'}\n   摘要：${item.desc || '无'}`).join('\n')
+      ? safeEvents.map((item, i) => `${i + 1}. 候选编号：${item.id}\n   标题：${item.title}\n   时间：${item.time || '未知'}\n   来源/类别：${item.category || '未知'}\n   聚合来源数：${item.sourceCount}${item.sourceNames.length ? '（' + item.sourceNames.join(' / ') + '）' : ''}\n   建议归类：${item.track || '宏观风险'}\n   摘要：${item.desc || '无'}`).join('\n')
       : safeHeadlines.slice(0, 30).map((h, i) => `${i + 1}. 标题：${h}\n   时间：未知\n   来源/类别：未知\n   摘要：无`).join('\n');
 
     const prompt = `以下是从真实新闻源抓取的今日国际局势候选事件。页面上方 RSS 卡片已经展示了一批新闻；“我的关注”要做补充筛选，避免重复上方内容。
@@ -492,7 +494,8 @@ ${eventLines}
 6. 所有事件标题必须是完整中文，必须把英文新闻标题准确翻译后再输出；人名、机构名可保留必要的英文缩写，但不得直接复制整句英文标题
 7. 不要选择与“上方已展示标题”明显同一件事的新闻，除非候选标题提供了明显更高的影响信息
 8. 每条必须保留候选编号，方便前端做二次去重
-9. 直接输出，不要加任何前言`;
+9. 候选事件已经做过同事件聚合；聚合来源数越多，说明该事件可能更重要，但同一候选编号只能输出一次
+10. 直接输出，不要加任何前言`;
 
     const analysis = await callDeepSeek([
       { role: 'system', content: '你是国际局势与美国军事防务态势分析师，负责为个人决策简报挑选补充关注事件。你必须避开已展示新闻的重复内容，只能依据输入候选事件判断，不得编造事实。美国态势只限美国军事部署、演训、行动、基地、军援和防务相关事件，不包括普通外交或制裁新闻。你的全部输出必须使用中文。' },

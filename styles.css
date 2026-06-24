@@ -1324,6 +1324,24 @@ body::after {
 .focus-event-card .fe-reason .reason-label {
   color: var(--red); font-weight: 600;
 }
+.focus-event-card .fe-sources {
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: var(--font-stack);
+}
+.focus-event-card .fe-source-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.focus-event-card .fe-source-links a {
+  color: var(--cyan);
+  font-size: 0.72rem;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(0,229,255,0.35);
+}
 .focus-source-link {
   margin-top: 10px;
   width: fit-content;
