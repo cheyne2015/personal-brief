@@ -204,12 +204,27 @@ app.post('/finance-analysis', aiRateLimiter, async (req, res) => {
         date: String(item && item.date || '').trim().slice(0, 20),
         previousDate: String(item && item.previousDate || '').trim().slice(0, 20),
         source: String(item && item.source || '').trim().slice(0, 80)
-      })).filter(item => item.name && Number.isFinite(item.value)) : []
+      })).filter(item => item.name && Number.isFinite(item.value)) : [],
+      flows: Array.isArray(context && context.flows) ? context.flows.slice(0, 8).map(item => ({
+        name: String(item && item.name || '').trim().slice(0, 80),
+        netMain: Number(item && item.netMain),
+        netMainRatio: Number(item && item.netMainRatio),
+        superLarge: Number(item && item.superLarge),
+        large: Number(item && item.large),
+        medium: Number(item && item.medium),
+        small: Number(item && item.small),
+        source: String(item && item.source || '').trim().slice(0, 80),
+        time: String(item && item.time || '').trim().slice(0, 40)
+      })).filter(item => item.name && Number.isFinite(item.netMain)) : []
     };
     const formatContext = items => items.length ? items.map((item, i) => `${i + 1}. ${item.title}${item.summary ? ' — ' + item.summary : ''}${item.category ? ' [' + item.category + ']' : ''}${item.evidenceLevel ? ' {证据:' + item.evidenceLevel + ',相关性:' + item.relevanceScore + '}' : ''}${item.time ? ' (' + item.time + ')' : ''}`).join('\n') : '无';
     const formatMacro = items => items.length ? items.map((item, i) => {
       const changeText = Number.isFinite(item.change) ? (item.change >= 0 ? '+' : '') + item.change.toFixed(item.unit === '%' || item.name.includes('利率') || item.name.includes('利差') ? 2 : 3) : 'n/a';
       return `${i + 1}. ${item.name}: ${item.value}${item.unit || ''}, 前值 ${Number.isFinite(item.previous) ? item.previous + (item.unit || '') : 'n/a'}, 变化 ${changeText}${item.unit || ''}, 日期 ${item.date}${item.source ? ', 来源 ' + item.source : ''}`;
+    }).join('\n') : '无';
+    const formatMoney = value => Number.isFinite(value) ? (value / 100000000).toFixed(2) + '亿元' : 'n/a';
+    const formatFlows = items => items.length ? items.map((item, i) => {
+      return `${i + 1}. ${item.name}: 主力净流入 ${formatMoney(item.netMain)}, 净占比 ${Number.isFinite(item.netMainRatio) ? item.netMainRatio.toFixed(2) + '%' : 'n/a'}, 超大单 ${formatMoney(item.superLarge)}, 大单 ${formatMoney(item.large)}, 中单 ${formatMoney(item.medium)}, 小单 ${formatMoney(item.small)}${item.time ? ', 时间 ' + item.time : ''}${item.source ? ', 来源 ' + item.source : ''}`;
     }).join('\n') : '无';
 
     const prompt = `你是一位专业的跨资产金融分析师。请根据行情数据和新闻上下文，生成三个板块的市场走势归因分析。注意：用户已经能看到涨跌幅，不需要你重复报价；你的重点是判断“有没有足够直接证据解释走势”，再解释背后可能反映的市场逻辑。
@@ -225,6 +240,9 @@ ${formatContext(financeContext.marketNews)}
 跨资产指标硬证据（用于判断美元、利率、波动率、油价是否支持归因）：
 ${formatMacro(financeContext.macro)}
 
+A股资金流硬证据（用于判断风险偏好、主力资金与散户结构）：
+${formatFlows(financeContext.flows)}
+
 背景新闻（只能用于说明风险背景，不能作为直接涨跌原因）：
 ${formatContext(financeContext.backgroundNews)}
 
@@ -236,21 +254,21 @@ AI：${formatContext(financeContext.ai)}
 要求：
 1. 用中文输出，语气专业但易懂
 2. 必须严格按以下格式输出三个板块，每个板块 2-3 条 bullet：
-[中国市场]
+[CN MARKET]
 • ...
 • ...
-[美股与科技]
+[US MARKET]
 • ...
 • ...
-[黄金与跨资产]
+[GOLD & CROSS ASSETS]
 • ...
 • ...
 3. 每个板块第一条必须先做证据判断：直接证据充足 / 直接证据有限 / 缺少直接市场新闻证据
-4. 只有“直接市场证据”或“跨资产指标硬证据”能对应板块时，才能写确定性较强的归因；否则必须写“当前上下文不足以确认直接原因”，并给出后续要跟踪的数据
+4. 只有“直接市场证据”“跨资产指标硬证据”或“A股资金流硬证据”能对应板块时，才能写确定性较强的归因；否则必须写“当前上下文不足以确认直接原因”，并给出后续要跟踪的数据
 5. 禁止把“当前价格、昨收、涨跌百分比”作为主要内容复述；可以简单提方向，但重点是逻辑链条
-6. 中国市场优先从 A股、上证、沪深300、中国政策、人民币、地产、消费或外资相关证据找逻辑；没有就说证据不足
+6. 中国市场优先从 A股、上证、沪深300、资金流、主力净流入/流出、中国政策、人民币、地产、消费或外资相关证据找逻辑；没有就说证据不足
 7. 美股与科技优先从 Nasdaq、科技股、AI、半导体、Fed、Treasury yields、VIX 证据找逻辑
-8. 黄金与跨资产优先从 gold、dollar、Treasury yields、safe haven、oil、geopolitical、VIX 证据找逻辑，并说明股债商/黄金之间的信号
+8. 黄金与跨资产优先从 gold、dollar、Treasury yields、safe haven、oil、bitcoin、USD/CNY、geopolitical、VIX 证据找逻辑，并说明股债商/黄金/比特币/人民币之间的信号
 9. 不能编造具体新闻、政策、成交量、资金流向、机构观点、支撑阻力或“市场普遍认为”；背景新闻只能写成“可能影响风险偏好/待验证”
 10. 最后一条必须注明“仅为行情归因参考，不构成投资建议”
 
@@ -984,7 +1002,9 @@ const FRED_MACRO_SERIES = [
   { id:'T10Y2Y', name:'美国10年-2年期限利差', unit:'%', source:'FRED / Federal Reserve' },
   { id:'VIXCLS', name:'VIX波动率指数', unit:'', source:'FRED / CBOE' },
   { id:'DTWEXBGS', name:'广义美元指数', unit:'', source:'FRED / Federal Reserve' },
-  { id:'DCOILWTICO', name:'WTI原油现货', unit:' USD/bbl', source:'FRED / EIA' }
+  { id:'DCOILWTICO', name:'WTI原油现货', unit:' USD/bbl', source:'FRED / EIA' },
+  { id:'CBBTCUSD', name:'比特币美元价格', unit:' USD', source:'FRED / Coinbase' },
+  { id:'DEXCHUS', name:'美元兑人民币', unit:' CNY', source:'FRED / Federal Reserve' }
 ];
 
 function parseFredCsv(text) {
@@ -1040,6 +1060,46 @@ async function fetchMacroContext(forceRefresh) {
   return payload;
 }
 
+function parseEastmoneyFundFlowItem(item) {
+  return {
+    code: String(item.f12 || ''),
+    name: String(item.f14 || ''),
+    netMain: Number(item.f62),
+    netMainRatio: Number(item.f184),
+    superLarge: Number(item.f66),
+    superLargeRatio: Number(item.f69),
+    large: Number(item.f72),
+    largeRatio: Number(item.f75),
+    medium: Number(item.f78),
+    mediumRatio: Number(item.f81),
+    small: Number(item.f84),
+    smallRatio: Number(item.f87),
+    source: 'Eastmoney',
+    time: new Date().toISOString()
+  };
+}
+
+async function fetchMoneyFlowContext(forceRefresh) {
+  const cached = macroContextCache.get('money-flow');
+  if (!forceRefresh && cached && Date.now() - cached.savedAt < 5 * 60 * 1000) return cached.payload;
+  const url = 'https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&fields=f12,f14,f62,f184,f66,f69,f72,f75,f78,f81,f84,f87&secids=1.000001,0.399001,0.399006,1.000688,1.000300';
+  const response = await fetchWithTimeout(url, {
+    headers:{
+      'User-Agent':'Mozilla/5.0',
+      'Referer':'https://data.eastmoney.com/zjlx/',
+      'Accept':'application/json,text/plain,*/*'
+    }
+  }, 10000);
+  if (!response.ok) throw new Error(`Eastmoney fund flow HTTP ${response.status}`);
+  const json = await response.json();
+  const rows = json && json.data && Array.isArray(json.data.diff) ? json.data.diff : [];
+  const flows = rows.map(parseEastmoneyFundFlowItem).filter(item => item.name && Number.isFinite(item.netMain));
+  if (!flows.length) throw new Error('Fund flow data unavailable');
+  const payload = { success:true, fetchedAt:new Date().toISOString(), source:'Eastmoney', flows };
+  macroContextCache.set('money-flow', { savedAt:Date.now(), payload });
+  return payload;
+}
+
 async function fetchMarketHistory(symbolKey, forceRefresh) {
   const config = MARKET_HISTORY_SYMBOLS[symbolKey];
   if (!config) throw new Error('Unsupported market symbol');
@@ -1083,6 +1143,14 @@ app.get('/market/history', async (req, res) => {
 app.get('/market/macro-context', async (req, res) => {
   try {
     res.json(await fetchMacroContext(req.query.refresh === '1'));
+  } catch (err) {
+    res.status(502).json({ success:false, error:err.message });
+  }
+});
+
+app.get('/market/flow-context', async (req, res) => {
+  try {
+    res.json(await fetchMoneyFlowContext(req.query.refresh === '1'));
   } catch (err) {
     res.status(502).json({ success:false, error:err.message });
   }

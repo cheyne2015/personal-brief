@@ -39,7 +39,7 @@ assert.deepStrictEqual(duplicateIds, [], 'HTML contains duplicate IDs');
 
 [
   'finSH', 'finSZ', 'finChiNext', 'finSTAR', 'finCSI300', 'finHSI', 'finBond',
-  'finDow', 'finNASDAQ', 'finSP500', 'finGoldValue', 'chartSH', 'chartNASDAQ', 'chartGOLD'
+  'finDow', 'finNASDAQ', 'finSP500', 'finGoldValue', 'finBTC', 'finUSDCNY', 'chartSH', 'chartNASDAQ', 'chartGOLD'
 ].forEach(id => assert(ids.includes(id), `Missing required element #${id}`));
 
 const staleMarketValues = ['4096.47', '25888.84', '51202.26', '7431.46'];
@@ -76,6 +76,10 @@ assert(backend.includes('直接市场证据'), 'Finance prompt must separate dir
 assert(app.includes('loadFinanceMacroContext'), 'Finance analysis must load macro indicator context');
 assert(backend.includes("app.get('/market/macro-context'"), 'Backend must expose macro context endpoint');
 assert(backend.includes('FRED_MACRO_SERIES'), 'Macro context must use explicit FRED series definitions');
+assert(app.includes('loadFinanceFlowContext'), 'Finance analysis must load fund-flow context');
+assert(backend.includes("app.get('/market/flow-context'"), 'Backend must expose money-flow context endpoint');
+assert(backend.includes('CBBTCUSD') && backend.includes('DEXCHUS'), 'Cross-asset macro context must include BTC and USD/CNY');
+assert(app.includes('GOLD & CROSS ASSETS'), 'Finance analysis cards must keep English section titles');
 assert(app.includes("'PAGE UPDATED '"), 'Page refresh time must be labeled separately from quote time');
 assert(!app.includes("el.setAttribute('title', 'Data fetched at '"), 'Market cards must not label request time as quote time');
 assert(preview.includes("const publicFiles = new Set"), 'Preview server must use a public-file allowlist');

@@ -58,11 +58,12 @@ function renderFinanceAnalysis(shCur, shPrev, goldCur, goldPrev, nxCur, nxPrev) 
 
   Promise.all([
     loadFinanceNewsContext(shouldBypassAICache()),
-    loadFinanceMacroContext(shouldBypassAICache())
+    loadFinanceMacroContext(shouldBypassAICache()),
+    loadFinanceFlowContext(shouldBypassAICache())
   ]).then(function() {
     var financeContext = collectFinanceContext();
     // Compute data hash to detect quote and dedicated market-news changes.
-    var dataHash = hashStr([shCur, shPrev, goldCur, goldPrev, nxCur||0, nxPrev||0, JSON.stringify(financeContext.marketNews || []), JSON.stringify(financeContext.macro || [])].join('|'));
+    var dataHash = hashStr([shCur, shPrev, goldCur, goldPrev, nxCur||0, nxPrev||0, JSON.stringify(financeContext.marketNews || []), JSON.stringify(financeContext.macro || []), JSON.stringify(financeContext.flows || [])].join('|'));
     var finCached = getCachedAIEntry('finance');
 
     if (!shouldBypassAICache() && finCached && finCached.hash === dataHash && finCached.aiHtml) {
@@ -125,11 +126,11 @@ function renderFinanceAnalysis(shCur, shPrev, goldCur, goldPrev, nxCur, nxPrev) 
 
 function parseFinanceAnalysisSections(rawText) {
   var sections = [
-    { key:'cn', title:'中国市场', icon:'🇨🇳', cls:'cn-market', lines:[] },
-    { key:'us', title:'美股与科技', icon:'🇺🇸', cls:'us-market', lines:[] },
-    { key:'gold', title:'黄金与跨资产', icon:'🟡', cls:'gold-market', lines:[] }
+    { key:'cn', title:'CN MARKET', icon:'CN', cls:'cn-market', lines:[] },
+    { key:'us', title:'US MARKET', icon:'US', cls:'us-market', lines:[] },
+    { key:'gold', title:'GOLD & CROSS ASSETS', icon:'CA', cls:'gold-market', lines:[] }
   ];
-  var map = { '中国市场':'cn', 'A股':'cn', 'CN MARKET':'cn', '美股与科技':'us', '美股':'us', '纳斯达克':'us', 'US MARKET':'us', '黄金与跨资产':'gold', '黄金':'gold', '贵金属':'gold' };
+  var map = { '中国市场':'cn', 'A股':'cn', 'CN MARKET':'cn', '美股与科技':'us', '美股':'us', '纳斯达克':'us', 'US MARKET':'us', '黄金与跨资产':'gold', 'GOLD & CROSS ASSETS':'gold', '黄金':'gold', '贵金属':'gold' };
   var current = sections[0];
   String(rawText || '').split('\n').forEach(function(rawLine) {
     var line = rawLine.trim();
@@ -243,10 +244,12 @@ function collectFinanceContext() {
   var ai = Array.isArray(window._aiNewsItems) ? window._aiNewsItems : [];
   var marketNews = Array.isArray(window._financeMarketNewsItems) ? window._financeMarketNewsItems : [];
   var macro = window._financeMacroContext && Array.isArray(window._financeMacroContext.indicators) ? window._financeMacroContext.indicators : [];
+  var flows = window._financeFlowContext && Array.isArray(window._financeFlowContext.flows) ? window._financeFlowContext.flows : [];
   return {
     marketNews: filterFinanceMarketNewsForAnalysis(marketNews).slice(0, 15),
     backgroundNews: marketNews.slice(0, 12),
     macro: macro.slice(0, 8),
+    flows: flows.slice(0, 8),
     domestic: domestic.slice(0, 10).map(function(item) {
       return {
         title: item.title || '',
@@ -268,6 +271,33 @@ function collectFinanceContext() {
   };
 }
 
+function formatCrossAssetValue(value, previous, options) {
+  if (!Number.isFinite(Number(value)) || !Number.isFinite(Number(previous)) || Number(previous) === 0) return '--';
+  var pct = (Number(value) - Number(previous)) / Number(previous) * 100;
+  var decimals = options && Number.isFinite(options.decimals) ? options.decimals : 2;
+  var prefix = options && options.prefix ? options.prefix : '';
+  var suffix = options && options.suffix ? options.suffix : '';
+  var valueText = prefix + Number(value).toLocaleString(undefined, { maximumFractionDigits: decimals, minimumFractionDigits: decimals }) + suffix;
+  var cls = pct >= 0 ? 'fin-up' : 'fin-down';
+  return valueText + ' <span class="' + cls + '">' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%</span>';
+}
+
+function updateCrossAssetIndicators(data) {
+  var indicators = data && Array.isArray(data.indicators) ? data.indicators : [];
+  function find(id) { return indicators.find(function(item) { return item.id === id; }); }
+  var btc = find('CBBTCUSD');
+  var cny = find('DEXCHUS');
+  var btcEl = document.getElementById('finBTC');
+  if (btcEl && btc) {
+    btcEl.innerHTML = formatCrossAssetValue(btc.value, btc.previous, { prefix:'$', decimals:0 });
+  }
+  var cnyEl = document.getElementById('finUSDCNY');
+  if (cnyEl && cny) {
+    cnyEl.innerHTML = formatCrossAssetValue(cny.value, cny.previous, { decimals:4 });
+    cnyEl.title = 'USD/CNY 上升通常表示人民币相对美元走弱';
+  }
+}
+
 function loadFinanceMacroContext(force) {
   if (!force && window._financeMacroContext && Array.isArray(window._financeMacroContext.indicators)) {
     return Promise.resolve(window._financeMacroContext);
@@ -287,6 +317,7 @@ function loadFinanceMacroContext(force) {
         throw new Error('Macro context unavailable');
       }
       window._financeMacroContext = data;
+      updateCrossAssetIndicators(data);
       apiCacheSet('finance_macro_context', data);
       return data;
     })
@@ -294,10 +325,44 @@ function loadFinanceMacroContext(force) {
       console.warn('Finance macro context failed:', error.message);
       if (cached && cached.data && Array.isArray(cached.data.indicators)) {
         window._financeMacroContext = cached.data;
+        updateCrossAssetIndicators(cached.data);
         return window._financeMacroContext;
       }
       window._financeMacroContext = { success:false, indicators:[] };
       return window._financeMacroContext;
+    });
+}
+
+function loadFinanceFlowContext(force) {
+  if (!force && window._financeFlowContext && Array.isArray(window._financeFlowContext.flows)) {
+    return Promise.resolve(window._financeFlowContext);
+  }
+  var cached = apiCacheGet('finance_flow_context');
+  if (!force && cached && cached.data && Array.isArray(cached.data.flows) && Date.now() - cached.ts < 5 * 60 * 1000) {
+    window._financeFlowContext = cached.data;
+    return Promise.resolve(window._financeFlowContext);
+  }
+  return fetch('/api/llm/market/flow-context' + (force ? '?refresh=1' : ''))
+    .then(function(response) {
+      if (!response.ok) throw new Error('Flow context HTTP ' + response.status);
+      return response.json();
+    })
+    .then(function(data) {
+      if (!data || !data.success || !Array.isArray(data.flows) || !data.flows.length) {
+        throw new Error('Flow context unavailable');
+      }
+      window._financeFlowContext = data;
+      apiCacheSet('finance_flow_context', data);
+      return data;
+    })
+    .catch(function(error) {
+      console.warn('Finance flow context failed:', error.message);
+      if (cached && cached.data && Array.isArray(cached.data.flows)) {
+        window._financeFlowContext = cached.data;
+        return window._financeFlowContext;
+      }
+      window._financeFlowContext = { success:false, flows:[] };
+      return window._financeFlowContext;
     });
 }
 
@@ -392,13 +457,13 @@ function renderStaticFinanceAnalysis(shCur, shPrev, goldCur, goldPrev, nxCur, nx
     return '三类资产方向分化不强，当前更适合观察后续新闻与成交确认，避免仅凭单日涨跌下结论。';
   }
   var raw = [
-    '[中国市场]',
+    '[CN MARKET]',
     '• ' + likelyReason('上证指数', shCur, shPrev, 'cn'),
     '• 国内热点与行业结构仍是判断 A 股原因的关键，当前静态判断只作为等待 AI 深度分析前的参考。',
-    '[美股与科技]',
+    '[US MARKET]',
     '• ' + likelyReason('纳斯达克', nxCur, nxPrev, 'us'),
     '• 科技股方向还要结合 AI 新闻、利率预期与大型成长股风险偏好确认。',
-    '[黄金与跨资产]',
+    '[GOLD & CROSS ASSETS]',
     '• ' + likelyReason('COMEX黄金', goldCur, goldPrev, 'gold'),
     '• ' + relation() + ' 仅为行情归因参考，不构成投资建议。'
   ].join('\n');
