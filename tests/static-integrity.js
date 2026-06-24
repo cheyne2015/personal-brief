@@ -83,6 +83,8 @@ assert(app.includes('loadFinanceFlowContext'), 'Finance analysis must load fund-
 assert(backend.includes("app.get('/market/flow-context'"), 'Backend must expose money-flow context endpoint');
 assert(backend.includes('CBBTCUSD') && backend.includes('DEXCHUS'), 'Cross-asset macro context must include BTC and USD/CNY');
 assert(app.includes('GOLD & CROSS ASSETS'), 'Finance analysis cards must keep English section titles');
+assert(backend.includes("app.get('/source-eval'"), 'Backend must expose source evaluation endpoint');
+assert(backend.includes('SOURCE_EVAL_TARGETS'), 'Source evaluation targets must be explicit');
 assert(app.includes("'PAGE UPDATED '"), 'Page refresh time must be labeled separately from quote time');
 assert(!app.includes("el.setAttribute('title', 'Data fetched at '"), 'Market cards must not label request time as quote time');
 assert(preview.includes("const publicFiles = new Set"), 'Preview server must use a public-file allowlist');

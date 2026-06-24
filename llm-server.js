@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const { execFile } = require('child_process');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
@@ -125,6 +126,17 @@ const RSS_PROXY_ALLOWLIST = (process.env.RSS_PROXY_ALLOWLIST || 'actually-releva
   .map(host => host.trim().toLowerCase())
   .filter(Boolean);
 const ARENA_CATEGORIES = new Set(['text', 'code', 'text-to-image', 'text-to-video']);
+const SOURCE_EVAL_TARGETS = [
+  { key:'npr-world', group:'global-rss', url:'https://feeds.npr.org/1004/rss.xml', expect:'xml' },
+  { key:'france24', group:'global-rss', url:'https://www.france24.com/en/rss', expect:'xml' },
+  { key:'chinanews-world', group:'global-rss', url:'https://www.chinanews.com.cn/rss/world.xml', expect:'xml' },
+  { key:'gdelt-doc', group:'global-json', url:'https://api.gdeltproject.org/api/v2/doc/doc?query=ceasefire&mode=artlist&format=json&maxrecords=5&sort=hybridrel', expect:'json' },
+  { key:'dailyhot-weibo', group:'domestic-hot', url:'https://api-hot.imsyy.top/weibo', expect:'json' },
+  { key:'dailyhot-baidu', group:'domestic-hot', url:'https://api-hot.imsyy.top/baidu', expect:'json' },
+  { key:'dailyhot-toutiao', group:'domestic-hot', url:'https://api-hot.imsyy.top/toutiao', expect:'json' },
+  { key:'dailyhot-36kr', group:'tech-news', url:'https://api-hot.imsyy.top/36kr', expect:'json' },
+  { key:'dailyhot-ifanr', group:'tech-news', url:'https://api-hot.imsyy.top/ifanr', expect:'json' }
+];
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
   const controller = new AbortController();
@@ -134,6 +146,22 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_M
   } finally {
     clearTimeout(id);
   }
+}
+
+function fetchTextWithCurl(url, timeoutSeconds = 12) {
+  return new Promise((resolve, reject) => {
+    execFile('curl', [
+      '-L', '-s', '--max-time', String(timeoutSeconds),
+      '-A', 'Mozilla/5.0 (compatible; ai-morning-brief-source-eval/1.0)',
+      url
+    ], { timeout: (timeoutSeconds + 2) * 1000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        reject(new Error(stderr || error.message));
+        return;
+      }
+      resolve(stdout);
+    });
+  });
 }
 
 async function callDeepSeek(messages, maxTokens = 500) {
@@ -427,6 +455,82 @@ app.get('/rss-proxy', async (req, res) => {
   } catch (err) {
     console.error('RSS proxy error:', err.message);
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/source-eval', async (req, res) => {
+  try {
+    const selected = String(req.query.key || 'all').trim();
+    const targets = selected === 'all'
+      ? SOURCE_EVAL_TARGETS
+      : SOURCE_EVAL_TARGETS.filter(target => target.key === selected || target.group === selected);
+    if (!targets.length) {
+      return res.status(404).json({ success:false, error:'No source target matched', available:SOURCE_EVAL_TARGETS.map(target => target.key) });
+    }
+    const results = await Promise.all(targets.map(async target => {
+      const started = Date.now();
+      try {
+        let status = 0;
+        let text = '';
+        let transport = 'fetch';
+        try {
+          const response = await fetchWithTimeout(target.url, {
+            headers:{
+              'User-Agent':'Mozilla/5.0 (compatible; ai-morning-brief-source-eval/1.0)',
+              'Accept':target.expect === 'json' ? 'application/json,text/plain,*/*' : 'application/rss+xml,application/xml,text/xml,*/*'
+            }
+          }, 12000);
+          status = response.status;
+          text = await response.text();
+        } catch (fetchError) {
+          transport = 'curl';
+          text = await fetchTextWithCurl(target.url, 12);
+          status = text ? 200 : 0;
+        }
+        const trimmed = text.trim();
+        const looksJson = trimmed.startsWith('{') || trimmed.startsWith('[');
+        const looksXml = trimmed.includes('<rss') || trimmed.includes('<rdf') || trimmed.includes('<feed');
+        let itemCount = null;
+        let parseError = '';
+        if (looksJson) {
+          try {
+            const json = JSON.parse(trimmed);
+            if (Array.isArray(json)) itemCount = json.length;
+            else if (Array.isArray(json.data)) itemCount = json.data.length;
+            else if (json.data && Array.isArray(json.data.list)) itemCount = json.data.list.length;
+            else if (json.data && Array.isArray(json.data.items)) itemCount = json.data.items.length;
+            else if (Array.isArray(json.articles)) itemCount = json.articles.length;
+          } catch (err) { parseError = err.message; }
+        } else if (looksXml) {
+          itemCount = (trimmed.match(/<item[\s>]/g) || []).length + (trimmed.match(/<entry[\s>]/g) || []).length;
+        }
+        return {
+          key:target.key,
+          group:target.group,
+          ok:status >= 200 && status < 300 && (looksJson || looksXml || trimmed.length > 0),
+          status,
+          transport,
+          ms:Date.now() - started,
+          bytes:text.length,
+          format:looksJson ? 'json' : (looksXml ? 'xml' : 'text'),
+          itemCount,
+          parseError,
+          sample:trimmed.slice(0, 220)
+        };
+      } catch (error) {
+        return {
+          key:target.key,
+          group:target.group,
+          ok:false,
+          status:0,
+          ms:Date.now() - started,
+          error:error.message
+        };
+      }
+    }));
+    res.json({ success:true, fetchedAt:new Date().toISOString(), results });
+  } catch (error) {
+    res.status(500).json({ success:false, error:error.message });
   }
 });
 
